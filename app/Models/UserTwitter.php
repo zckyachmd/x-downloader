@@ -25,9 +25,9 @@ class UserTwitter extends Model
     ];
 
     protected $casts = [
-        'tokens' => 'array',
-        'cookies' => 'array',
+        'tokens'    => 'array',
+        'cookies'   => 'array',
         'is_active' => 'boolean',
-        'is_main' => 'boolean',
+        'is_main'   => 'boolean',
     ];
 }

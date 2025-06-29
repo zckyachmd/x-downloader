@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Models\Config;
 use App\Models\UserTwitter;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Http;
@@ -11,48 +12,44 @@ class AddTwitterAccount extends Command
 {
     protected $signature = 'twitter:add
                             {--username= : Twitter username (required)}
-                            {--email= : Email (optional)}
                             {--password= : Password (required)}
                             {--main : Set as main account (optional)}';
 
     protected $description = 'Tambah akun Twitter ke tabel user_twitters';
 
-    protected string $endpoint;
-
-    public function __construct()
-    {
-        parent::__construct();
-        $this->endpoint = rtrim(env('TWITTER_LOGIN_ENDPOINT', 'http://localhost:3000'), '/') . '/login';
-    }
-
     public function handle()
     {
         $username = $this->option('username');
-        $email    = $this->option('email');
         $password = $this->option('password');
         $isMain   = (bool) $this->option('main');
 
         if (!$username || !$password) {
             $this->error('--username and --password are required.');
+
             return self::FAILURE;
         }
+
+        $endpointBase = Config::getValue('API_X_DOWNLOADER', 'http://localhost:3000');
+        $endpoint     = rtrim($endpointBase, '/') . '/login';
 
         $this->info("🚀 Logging in as @$username...");
 
         try {
-            $response = Http::timeout(30)->post($this->endpoint, [
+            $response = Http::timeout(30)->post($endpoint, [
                 'identifier' => $username,
                 'password'   => $password,
             ]);
         } catch (\Throwable $e) {
             $this->error("❌ Failed to call endpoint: " . $e->getMessage());
             Log::error("[AddTwitterAccount] HTTP Exception @$username: " . $e->getMessage());
+
             return self::FAILURE;
         }
 
         if (!$response->ok()) {
             $this->error("❌ Request failed: HTTP " . $response->status());
             Log::warning("[AddTwitterAccount] HTTP error @$username: {$response->status()}");
+
             return self::FAILURE;
         }
 
@@ -81,7 +78,6 @@ class AddTwitterAccount extends Command
         $wasCreated = !$account->exists;
 
         $account->fill([
-            'email'      => $email,
             'password'   => encrypt($password),
             'tokens'     => $token,
             'cookies'    => $cookie['parsed'],
