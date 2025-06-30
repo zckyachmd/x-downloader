@@ -24,6 +24,20 @@ class ConfigSeeder extends Seeder
                 'type'        => 'string',
             ],
             [
+                'key'         => 'AUTO_REFRESH_TOKEN',
+                'name'        => 'Auto Refresh Token on Account',
+                'description' => 'Memperbarui token secara otomatis pada akun X.',
+                'value'       => 'true',
+                'type'        => 'boolean',
+            ],
+            [
+                'key'         => 'AUTO_TWEET_REPLY',
+                'name'        => 'Auto Tweet Reply',
+                'description' => 'Mencari dan Mengirim balasan tweet secara otomatis berdasarkan kata kunci.',
+                'value'       => 'true',
+                'type'        => 'boolean',
+            ],
+            [
                 'key'         => 'TWEET_SEARCH_KEYWORDS',
                 'name'        => 'Tweet Search Keywords',
                 'description' => 'Kata kunci yang dipakai untuk mencari tweet (misalnya akun, hashtag, atau frasa), pisahkan dengan titik koma (;) untuk menggunakan beberapa kata kunci.',
@@ -70,10 +84,12 @@ class ConfigSeeder extends Seeder
         ];
 
         foreach ($configs as $config) {
-            Config::updateOrCreate(
-                ['key' => $config['key']],
-                $config,
-            );
+            $created = Config::firstOrCreate(['key' => $config['key']], $config);
+            if ($created->wasRecentlyCreated) {
+                $this->command->info("✅ Created config: {$config['key']}");
+            } else {
+                $this->command->warn("⚠️ Skipped existing config: {$config['key']}");
+            }
         }
     }
 }

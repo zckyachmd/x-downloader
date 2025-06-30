@@ -119,7 +119,7 @@ class FetchTweetsKeywordJob implements ShouldQueue
             }
 
             if ($status === 404 || str_contains($json['detail'] ?? '', '404')) {
-                Log::info("[FetchTweetsJob] 🔍 404 or not found @$this->username ({$this->keyword})");
+                Log::info("[FetchTweetsJob] 🔍 Tweet not found @$this->username ({$this->keyword}) mode={$this->mode}");
 
                 return;
             }

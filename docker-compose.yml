@@ -1,0 +1,96 @@
+services:
+    app:
+        build:
+            context: .
+            dockerfile: Dockerfile
+        container_name: x-downloader-app
+        restart: unless-stopped
+        working_dir: /var/www
+        env_file:
+            - .env
+        environment:
+            DB_CONNECTION: pgsql
+            DB_HOST: x-downloader-db
+            DB_PORT: 5432
+            REDIS_CLIENT: phpredis
+            REDIS_HOST: x-downloader-redis
+            REDIS_PORT: 6379
+            REDIS_PASSWORD: null
+            CACHE_DRIVER: redis
+            CACHE_STORE: redis
+            QUEUE_CONNECTION: redis
+            APP_MAINTENANCE_DRIVER: cache
+            APP_MAINTENANCE_STORE: redis
+        volumes:
+            - ./storage/logs:/var/www/storage/logs
+            - ./supervisor-logs:/var/log/supervisor
+            - ./.env:/var/www/.env:ro
+        depends_on:
+            postgres:
+                condition: service_healthy
+            redis:
+                condition: service_healthy
+        networks:
+            - x_downloader_net
+
+    nginx:
+        image: nginx:stable
+        container_name: x-downloader-web
+        restart: unless-stopped
+        ports:
+            - "${APP_PORT:-8080}:80"
+        volumes:
+            - ./nginx.conf:/etc/nginx/nginx.conf
+        depends_on:
+            - app
+        networks:
+            - x_downloader_net
+
+    postgres:
+        image: postgres:16
+        container_name: x-downloader-db
+        restart: unless-stopped
+        ports:
+            - "${DB_PORT:-5432}:5432"
+        environment:
+            POSTGRES_DB: ${DB_DATABASE}
+            POSTGRES_USER: ${DB_USERNAME}
+            POSTGRES_PASSWORD: ${DB_PASSWORD}
+        volumes:
+            - pg_data:/var/lib/postgresql/data
+        healthcheck:
+            test:
+                ["CMD-SHELL", "pg_isready -U ${DB_USERNAME} -d ${DB_DATABASE}"]
+            interval: 10s
+            timeout: 5s
+            retries: 5
+            start_period: 5s
+        networks:
+            - x_downloader_net
+
+    redis:
+        image: redis:7
+        container_name: x-downloader-redis
+        restart: unless-stopped
+        volumes:
+            - redis_data:/data
+        healthcheck:
+            test: ["CMD", "redis-cli", "ping"]
+            interval: 10s
+            timeout: 3s
+            retries: 5
+            start_period: 5s
+        networks:
+            - x_downloader_net
+
+volumes:
+    pg_data:
+    redis_data:
+    supervisor-logs:
+
+networks:
+    x_downloader_net:
+        driver: bridge
+        ipam:
+            config:
+                - subnet: 172.25.0.0/24

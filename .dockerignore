@@ -1,0 +1,14 @@
+/node_modules
+/vendor
+/storage/*
+!storage/app
+!storage/framework
+!storage/logs
+.env
+*.log
+.DS_Store
+.git
+.idea
+docker-compose.override.yml
+docker-compose.dev.yml
+@eaDir

@@ -1,0 +1,16 @@
+services:
+  app:
+    volumes:
+      - .:/var/www:cached
+      - ./docker-entrypoint.sh:/usr/local/bin/docker-entrypoint.sh:ro
+      - ./supervisor-logs:/var/log/supervisor
+      - ./storage/logs:/var/www/storage/logs
+      - ./.env:/var/www/.env:ro
+    environment:
+      APP_DEBUG: true
+      LOG_CHANNEL: stderr
+    command: ["php-fpm"]
+
+  nginx:
+    volumes:
+      - .:/var/www:cached

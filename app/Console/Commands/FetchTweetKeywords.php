@@ -12,12 +12,19 @@ class FetchTweetKeywords extends Command
     protected $signature = 'twitter:fetch-tweets
         {--mode=all : Mode to fetch: all, fresh, or historical}
         {--limit=3 : Limit accounts per keyword to dispatch}
-        {--max-keyword=5 : Max number of keywords to process from config}';
+        {--max-keyword=5 : Max number of keywords to process from config}
+        {--force : Force run even if AUTO_TWEET_REPLY is false}';
 
     protected $description = 'Dispatch fetch tweet jobs per keyword per account (fresh + historical with depth)';
 
     public function handle()
     {
+        if (!$this->option('force') && !Config::getValue('AUTO_TWEET_REPLY', true)) {
+            $this->warn("⚠️ AUTO_TWEET_REPLY is disabled. Use --force to override.");
+
+            return self::SUCCESS;
+        }
+
         $modeOption   = $this->option('mode');
         $accountLimit = (int) $this->option('limit', 3);
         $keywordLimit = (int) $this->option('max-keyword', 5);

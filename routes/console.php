@@ -11,5 +11,5 @@ Schedule::command('twitter:fetch-tweets --limit=3')
     ->withoutOverlapping(300);
 
 Schedule::command('twitter:replies-queue --limit=5')
-    ->everyMinute()
+    ->everyFiveMinutes()
     ->withoutOverlapping(30);

@@ -10,7 +10,7 @@ use Jaybizzle\CrawlerDetect\CrawlerDetect;
 
 class TweetRedirectController extends Controller
 {
-    public function redirect(Request $request, string $prefix, string $tweetId)
+    public function handle(Request $request, string $prefix, string $tweetId)
     {
         $userAgent = $request->userAgent();
         $ip        = $request->ip();

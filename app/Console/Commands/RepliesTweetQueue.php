@@ -3,17 +3,27 @@
 namespace App\Console\Commands;
 
 use App\Jobs\ReplyToQueuedJob;
+use App\Models\Config;
 use App\Models\Tweet;
 use App\Models\UserTwitter;
 use Illuminate\Console\Command;
 
 class RepliesTweetQueue extends Command
 {
-    protected $signature   = 'twitter:replies-queue {--limit=5 : Max tweets to dispatch}';
+    protected $signature = 'twitter:replies-queue
+        {--limit=5 : Max tweets to dispatch}
+        {--force : Force run even if AUTO_TWEET_REPLY is false}';
+
     protected $description = 'Dispatch reply jobs for tweets (status=queue) with related_tweet_id';
 
     public function handle()
     {
+        if (!$this->option('force') && !Config::getValue('AUTO_TWEET_REPLY', true)) {
+            $this->warn("⚠️ AUTO_TWEET_REPLY is disabled. Use --force to override.");
+
+            return self::SUCCESS;
+        }
+
         $limit = (int) $this->option('limit', 5);
 
         $excluded = UserTwitter::getExcludedUsernames()
