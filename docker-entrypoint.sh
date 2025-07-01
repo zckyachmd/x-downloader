@@ -33,4 +33,4 @@ php artisan db:seed --force
 
 # Start Supervisor
 echo "🚀 Starting Supervisor..."
-exec /usr/bin/supervisord
+exec supervisord -c /etc/supervisor/conf.d/supervisord.conf

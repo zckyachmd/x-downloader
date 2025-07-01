@@ -36,8 +36,8 @@ class AddTwitterAccount extends Command
 
         try {
             $response = Http::timeout(30)->post($endpoint, [
-                'identifier' => $username,
-                'password'   => $password,
+                'username' => $username,
+                'password' => $password,
             ]);
         } catch (\Throwable $e) {
             $this->error("❌ Failed to call endpoint: " . $e->getMessage());

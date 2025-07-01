@@ -8,10 +8,9 @@ class HomeController extends Controller
 {
     public function index(Request $request)
     {
-        $tweetId = $request->get('tweetId');
-
-        return view('welcome', [
-            'tweetId' => $tweetId,
+        return view('home', [
+            'title'    => 'Home',
+            'tweetUrl' => $request->input('tweet'),
         ]);
     }
 }

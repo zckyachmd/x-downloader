@@ -14,6 +14,32 @@ Route::get('{prefix}/status/{tweetId}', [TweetRedirectController::class, 'handle
     ])
     ->name('tweet.redirect');
 
-Route::get('/search/{tweetId}', [TweetVideoController::class, 'detail'])->name('tweet.detail');
+Route::prefix('tweet')->group(function () {
+    Route::post('/search', [TweetVideoController::class, 'search'])->name('tweet.search');
 
-Route::get('/download/{tweetId}/{bitrate}', [TweetVideoController::class, 'download'])->name('tweet.download');
+    Route::get('/{tweetId}/thumbnail', [TweetVideoController::class, 'thumbnail'])
+        ->name('tweet.thumbnail');
+
+    Route::get('/{tweetId}/preview', [TweetVideoController::class, 'preview'])
+        ->middleware('signed')
+        ->name('tweet.preview');
+
+    Route::post('/{tweetId}/{bitrate}/download', [TweetVideoController::class, 'download'])
+        ->name('tweet.download');
+});
+
+Route::get('/debug-ip', function () {
+    return [
+        'ip'      => request()->ip(),
+        'secure'  => request()->secure(),
+        'headers' => request()->headers->all(),
+    ];
+});
+
+Route::get('/debug-https', function () {
+    return [
+        'secure' => request()->secure(),
+        'scheme' => request()->getScheme(),
+        'ip'     => request()->ip(),
+    ];
+});

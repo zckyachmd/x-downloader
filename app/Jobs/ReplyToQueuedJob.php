@@ -69,7 +69,7 @@ class ReplyToQueuedJob implements ShouldQueue
                 return;
             }
 
-            $bearer = data_get($account->tokens, 'bearer');
+            $bearer = data_get($account->tokens, 'bearer_token');
             $csrf   = data_get($account->tokens, 'csrf_token');
             $cookie = is_array($account->cookies)
                 ? collect($account->cookies)->map(fn ($v, $k) => "$k=$v")->join('; ')
@@ -104,16 +104,15 @@ class ReplyToQueuedJob implements ShouldQueue
 
             $endpoint = rtrim(Config::getValue('API_X_DOWNLOADER', 'http://localhost:3000'), '/') . '/tweet/create';
 
-            $res = Http::withHeaders([
-                'User-Agent' => $agent,
-            ])->timeout(20)->post($endpoint, [
-                'bearer'         => $bearer,
-                'csrf_token'     => $csrf,
-                'cookie'         => $cookie,
-                'user_agent'     => $agent,
-                'reply_tweet_id' => $tweet->tweet_id,
-                'text'           => $replyText,
-            ]);
+            $res = Http::timeout(20)
+                ->post($endpoint, [
+                    'bearer_token'   => $bearer,
+                    'csrf_token'     => $csrf,
+                    'cookie'         => $cookie,
+                    'user_agent'     => $agent,
+                    'reply_tweet_id' => $tweet->tweet_id,
+                    'text'           => $replyText,
+                ]);
 
             $status    = $res->status();
             $body      = $res->body();
