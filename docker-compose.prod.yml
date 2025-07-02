@@ -1,0 +1,20 @@
+services:
+  app:
+    build:
+      args:
+        APP_ENV: production
+    volumes:
+      - .env:/var/www/.env:ro
+      - laravel_app:/var/www
+    environment:
+      APP_DEBUG: false
+      APP_ENV: production
+      APP_SUPERVISOR_USER: www-data
+      LOG_LEVEL: warning
+
+  nginx:
+    volumes:
+      - laravel_app:/var/www:ro
+
+volumes:
+  laravel_app:

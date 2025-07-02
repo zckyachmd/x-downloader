@@ -27,6 +27,18 @@ class TweetSearchRequest extends FormRequest
     }
 
     /**
+     * Get custom attributes for validator errors.
+     *
+     * @return array<string, string>
+     */
+    public function attributes(): array
+    {
+        return [
+            'tweet-url' => 'URL Tweet',
+        ];
+    }
+
+    /**
      * Returns the tweet ID extracted from the provided tweet URL if it matches.
      *
      * @return int|null

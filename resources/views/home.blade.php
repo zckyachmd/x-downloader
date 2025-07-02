@@ -78,178 +78,22 @@
 @endsection
 
 @push('scripts')
+<script src="{{ url('js/home.js') }}"></script>
 <script>
-    $(document).ready(function () {
-        $('#tweet-search-form').on('submit', function (e) {
-            e.preventDefault();
+    window.routes = {
+        tweetDownload: @json(route('tweet.download', ['videoKey' => ':videoKey'])),
+    };
 
-            const form = $(this);
-            const btn = form.find('button[type="submit"]');
+    @if ($autoSearch && filter_var($tweetUrl, FILTER_VALIDATE_URL))
+        $(function () {
+            const $form = $('#tweet-search-form');
+            const $input = $('#tweet-url');
 
-            if (!btn.data('original-html')) {
-                btn.data('original-html', btn.html());
+            if ($form.length && $input.length) {
+                $input.val(@json($tweetUrl));
+                $form.trigger('submit');
             }
-
-            $.ajax({
-                url: form.attr('action'),
-                method: form.attr('method'),
-                data: form.serialize(),
-                beforeSend() {
-                    btn.prop('disabled', true).html(`<span class="spinner-border spinner-border-sm"></span> Loading`);
-                },
-                success(res) {
-                    const data = res.data;
-                    if (!data) return;
-
-                    const tweetId = data.tweet_id;
-                    const cardHtml = renderTweetCard(data, tweetId);
-
-                    $('#tweet-result').html(cardHtml).removeClass('d-none');
-                    $('html, body').animate({ scrollTop: $('#tweet-result').offset().top - 80 }, 600);
-                },
-                error(err) {
-                    const message = err?.responseJSON?.message || 'Oops, something went wrong.';
-
-                    Swal.fire({
-                        icon: 'error',
-                        title: 'Oops...',
-                        text: message,
-                    });
-                },
-                complete() {
-                    btn.prop('disabled', false).html(btn.data('original-html'));
-                }
-            });
         });
-
-        $(document).on('click tap touchstart', '.btn-download', function (e) {
-            e.preventDefault();
-
-            const btn = $(this);
-            const tweetId = btn.data('tweet-id');
-            const bitrate = btn.data('bitrate');
-            const downloadUrl = @json(route('tweet.download', ['tweetId' => ':tweetId', 'bitrate' => ':bitrate']))
-                .replace(':tweetId', tweetId)
-                .replace(':bitrate', bitrate);
-
-            if (!btn.data('original-html')) {
-                btn.data('original-html', btn.html());
-            }
-
-            $.ajax({
-                url: downloadUrl,
-                method: 'POST',
-                xhrFields: {
-                    responseType: 'blob'
-                },
-                beforeSend: function () {
-                    btn.prop('disabled', true).html(`<span class="spinner-border spinner-border-sm"></span> Downloading...`);
-                },
-                success: function (blob, status, xhr) {
-                    const disposition = xhr.getResponseHeader('Content-Disposition');
-                    const match = /filename="(.+)"/.exec(disposition);
-                    const filename = match?.[1] || 'video.mp4';
-
-                    const fileURL = URL.createObjectURL(blob);
-                    const link = document.createElement('a');
-                    link.href = fileURL;
-                    link.download = filename;
-                    document.body.appendChild(link);
-                    link.click();
-                    link.remove();
-                    URL.revokeObjectURL(fileURL);
-                },
-                error: function (xhr) {
-                    let message = 'Failed to download video.';
-
-                    try {
-                        const resText = xhr.responseText;
-                        if (resText && resText.startsWith('{')) {
-                            const response = JSON.parse(resText);
-                            message = response.message || message;
-                        }
-                    } catch (_) {
-                        // Silent fail
-                    }
-
-                    Swal.fire({
-                        icon: 'error',
-                        title: 'Oops...',
-                        text: message,
-                    });
-                },
-                complete: function () {
-                    btn.prop('disabled', false).html(btn.data('original-html'));
-                }
-            });
-        });
-    });
-
-    function renderTweetCard(data, tweetId) {
-        return `
-            <div class="card border-0 shadow-sm p-4">
-                <div class="row g-4">
-                    <div class="col-12 col-md-5">
-                        <div class="bg-black rounded overflow-hidden position-relative w-100" style="aspect-ratio: 9 / 16; height: 100%">
-                            <video
-                                class="w-100 h-100 rounded-md"
-                                style="object-fit: contain"
-                                controls
-                                playsinline
-                                poster="${data.preview.image}"
-                            >
-                                <source src="${data.preview.video}" type="video/mp4" />
-                                Your browser does not support the video tag.
-                            </video>
-                        </div>
-                    </div>
-
-                    <div class="col-md-7 d-flex flex-column justify-content-between">
-                        <div class="mb-4">
-                            <p class="text-muted tweet-text text-start mb-3 fst-italic border-start ps-3">
-                                ${data.text ?? "No text found."}
-                            </p>
-                            <div class="d-flex align-items-center mb-2">
-                                <h6 class="fw-semibold mb-0">
-                                    <a
-                                        href="https://x.com/${data.author.username}"
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        class="text-decoration-none text-dark"
-                                    >
-                                        &#8212; @${data.author.username}
-                                    </a>
-                                </h6>
-                            </div>
-                            <hr class="my-3" />
-                        </div>
-
-                        <div class="mt-auto">
-                            <h6 class="fw-bold mb-3 text-dark">Available Videos <small class="text-muted">(${data.media.duration})</small></h6>
-                            <div class="d-grid gap-2">
-                                ${data.media.variants.map((m) => `
-                                    <button
-                                        type="button"
-                                        class="btn btn-outline-primary btn-sm d-flex justify-content-between align-items-center btn-download"
-                                        data-bitrate="${m.bitrate}"
-                                        data-tweet-id="${tweetId}"
-                                    >
-                                        <span class="text-truncate">
-                                            ${m.resolution ?? "Unknown"} • ${m.size ?? "Unknown"}
-                                        </span>
-                                        <i class="fa-solid fa-download ms-2"></i>
-                                    </button>
-                                `).join("")}
-                            </div>
-
-                            <div class="mt-2 text-start text-muted fst-italic" style="font-size: 0.75rem;">
-                                Estimated size — actual may vary.
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        `;
-    }
+    @endif
 </script>
 @endpush

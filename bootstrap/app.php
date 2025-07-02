@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Middleware\EnsureAjaxRequest;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -13,11 +14,14 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->trustProxies(
-            at: ['0.0.0.0/0'],
-            headers: Request::HEADER_X_FORWARDED_TRAEFIK,
+            at: '*',
+            headers: Request::HEADER_X_FORWARDED_FOR |
+                Request::HEADER_X_FORWARDED_HOST |
+                Request::HEADER_X_FORWARDED_PORT |
+                Request::HEADER_X_FORWARDED_PROTO,
         );
-        $middleware->validateCsrfTokens(except: [
-            'tweet/*',
+        $middleware->alias([
+            'ajax.only' => EnsureAjaxRequest::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

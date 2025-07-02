@@ -4,11 +4,15 @@ namespace App\Http\Controllers;
 
 use App\Contracts\TweetVideoServiceContract;
 use App\Http\Requests\TweetSearchRequest;
+use App\Traits\EncodesVideoKey;
+use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class TweetVideoController extends Controller
 {
+    use EncodesVideoKey;
+
     protected $tweetVideoService;
 
     public function __construct(TweetVideoServiceContract $tweetVideoService)
@@ -40,31 +44,20 @@ class TweetVideoController extends Controller
         ]);
     }
 
-    public function thumbnail(int $tweetId)
+    public function thumbnail(string $videoKey)
     {
-        $stream = $this->tweetVideoService->imageThumbnail($tweetId);
-
-        if (!$stream) {
+        $resolved = $this->decodeVideoKey($videoKey);
+        if (!$resolved) {
             abort(404);
         }
 
-        return response()->stream(
-            fn () => fpassthru($stream->detach()),
-            200,
-            [
-                'Content-Type'  => 'image/jpeg',
-                'Cache-Control' => 'public, max-age=86400',
-            ],
-        );
-    }
-
-    public function preview(int $tweetId)
-    {
-        $stream = $this->tweetVideoService->streamVideo($tweetId, null, true);
-
-        if (!$stream) {
+        $result = $this->tweetVideoService->imageThumbnail($resolved['tweet_id'], $resolved['index']);
+        if (!$result || !isset($result['stream'])) {
             abort(404);
         }
+
+        $stream      = $result['stream'];
+        $contentType = $result['content_type'] ?? 'image/jpeg';
 
         return new StreamedResponse(function () use ($stream) {
             while (!$stream->eof()) {
@@ -72,31 +65,79 @@ class TweetVideoController extends Controller
                 flush();
             }
         }, 200, [
-            'Content-Type'        => 'video/mp4',
-            'Content-Disposition' => 'inline; filename="preview.mp4"',
-            'Cache-Control'       => 'no-store',
+            'Content-Type'  => $contentType,
+            'Cache-Control' => 'public, max-age=86400',
+            'Accept-Ranges' => 'bytes',
         ]);
     }
 
-    public function download(int $tweetId, int $bitrate)
+    public function preview(Request $request, string $videoKey)
     {
-        $stream = $this->tweetVideoService->streamVideo($tweetId, $bitrate, false);
-
-        if (!$stream) {
-            return response()->json(['message' => 'Unable to download video.'], 410);
+        $resolved = $this->decodeVideoKey($videoKey);
+        if (!$resolved) {
+            abort(404);
         }
 
-        $filename = Str::slug(config('app.name')) . '_' . Str::random(6) . '.mp4';
+        $data = $this->tweetVideoService->streamVideo($resolved['tweet_id'], $resolved['index'], true, null, $request->header('Range'));
+        if (!$data) {
+            abort(404);
+        }
 
-        return new StreamedResponse(function () use ($stream) {
-            while (!$stream->eof()) {
-                echo $stream->read(8192);
+        $length = $data['end'] - $data['start'] + 1;
+
+        return new StreamedResponse(function () use ($data) {
+            while (!$data['stream']->eof()) {
+                echo $data['stream']->read(65536);
                 flush();
             }
-        }, 200, [
-            'Content-Type'        => 'video/mp4',
+        }, $data['status'], [
+            'Content-Type'           => $data['content_type'],
+            'Content-Disposition'    => 'inline',
+            'Accept-Ranges'          => 'bytes',
+            'Content-Length'         => $length,
+            'Content-Range'          => "bytes {$data['start']}-{$data['end']}/{$data['total_length']}",
+            'Cache-Control'          => 'no-store, no-cache, must-revalidate',
+            'Pragma'                 => 'no-cache',
+            'Expires'                => '0',
+            'X-Content-Type-Options' => 'nosniff',
+        ]);
+    }
+
+    public function download(Request $request, string $videoKey)
+    {
+        $bitrate = $request->query('bitrate');
+        if (!is_null($bitrate) && (!is_numeric($bitrate) || (int) $bitrate < 0)) {
+            return response()->json(['message' => 'That video seems to be missing or unavailable.'], 422);
+        }
+
+        $resolved = $this->decodeVideoKey($videoKey);
+        if (!$resolved) {
+            abort(404);
+        }
+
+        $data = $this->tweetVideoService->streamVideo($resolved['tweet_id'], $resolved['index'], false, (int) $bitrate, $request->header('Range'));
+        if (!$data) {
+            return response()->json(['message' => 'This video is no longer available.'], 410);
+        }
+
+        $filename = config('app.name') . '_' . Str::random(6) . '.mp4';
+        $length   = $data['end'] - $data['start'] + 1;
+
+        return new StreamedResponse(function () use ($data) {
+            while (!$data['stream']->eof()) {
+                echo $data['stream']->read(65536);
+                flush();
+            }
+        }, $data['status'], [
+            'Content-Type'        => $data['content_type'],
             'Content-Disposition' => 'attachment; filename="' . $filename . '"',
-            'Cache-Control'       => 'no-cache',
+            'Accept-Ranges'       => 'bytes',
+            'Content-Length'      => $length,
+            'Content-Range'       => "bytes {$data['start']}-{$data['end']}/{$data['total_length']}",
+            'Cache-Control'       => 'no-store',
+            'Connection'          => 'keep-alive',
+            'Pragma'              => 'public',
+            'Expires'             => '0',
         ]);
     }
 }

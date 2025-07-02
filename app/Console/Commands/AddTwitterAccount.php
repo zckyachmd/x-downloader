@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Models\Config;
 use App\Models\UserTwitter;
+use App\Utils\UserAgent;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -36,8 +37,9 @@ class AddTwitterAccount extends Command
 
         try {
             $response = Http::timeout(30)->post($endpoint, [
-                'username' => $username,
-                'password' => $password,
+                'username'   => $username,
+                'password'   => $password,
+                'user_agent' => UserAgent::random(),
             ]);
         } catch (\Throwable $e) {
             $this->error("❌ Failed to call endpoint: " . $e->getMessage());
@@ -48,7 +50,10 @@ class AddTwitterAccount extends Command
 
         if (!$response->ok()) {
             $this->error("❌ Request failed: HTTP " . $response->status());
-            Log::warning("[AddTwitterAccount] HTTP error @$username: {$response->status()}");
+            Log::warning(
+                "[AddTwitterAccount] HTTP error @$username: {$response->status()}",
+                ['response' => $response->json()],
+            );
 
             return self::FAILURE;
         }

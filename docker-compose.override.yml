@@ -1,0 +1,20 @@
+services:
+  app:
+    build:
+      args:
+        APP_ENV: development
+    volumes:
+      - .:/var/www
+      - vendor:/var/www/vendor
+    environment:
+      APP_DEBUG: true
+      APP_ENV: development
+      APP_SUPERVISOR_USER: "root"
+      LOG_LEVEL: debug
+
+  nginx:
+    volumes:
+      - ./public:/var/www/public:ro
+
+volumes:
+  vendor:

@@ -1,14 +1,24 @@
-/node_modules
-/vendor
-/storage/*
-!storage/app
-!storage/framework
-!storage/logs
+# Node & PHP dependencies
+node_modules
+vendor
+
+# Laravel specific
 .env
 *.log
 .DS_Store
-.git
-.idea
+
+# Storage
+storage/*
+!storage/app/
+!storage/framework/
+!storage/logs/
+
+# Docker dev files
 docker-compose.override.yml
-docker-compose.dev.yml
+docker-compose.prod.yml
+
+# Synology DSM
 @eaDir
+
+# Git
+.git

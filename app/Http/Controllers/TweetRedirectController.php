@@ -18,62 +18,51 @@ class TweetRedirectController extends Controller
 
     public function handle(Request $request, string $prefix, string $tweetId)
     {
-        $userAgent = $request->userAgent();
-        $isBot     = $this->crawler->isCrawler($userAgent);
-        $tweetUrl  = "https://x.com/{$prefix}/status/{$tweetId}";
+        $isBot    = $this->crawler->isCrawler($request->userAgent());
+        $tweetUrl = "https://x.com/{$prefix}/status/{$tweetId}";
+
+        $tweet = Tweet::where('tweet_id', $tweetId)->first()
+            ?? Tweet::where('related_tweet_id', $tweetId)->first();
+
+        if (!$tweet) {
+            Log::warning('[Redirect] Tweet not found', [
+                'tweet_id' => $tweetId,
+                'agent'    => $request->userAgent(),
+                'ip'       => $request->ip(),
+            ]);
+
+            $meta = [
+                'tweetId'  => $tweetId,
+                'username' => $prefix,
+                'videoUrl' => null,
+                'preview'  => null,
+                'media'    => null,
+            ];
+        } else {
+            $media = collect($tweet->media)->firstWhere('type', 'video');
+            $video = $media['video'] ?? [];
+            $best  = collect($video)->sortByDesc('bitrate')->first();
+
+            $meta = [
+                'tweetId'  => $tweet->tweet_id,
+                'username' => $tweet->username,
+                'media'    => $media,
+                'videoUrl' => $best['url'] ?? null,
+                'preview'  => $media['preview_url'] ?? null,
+            ];
+        }
+
+        $query = ['tweet' => $tweetUrl];
 
         if (!$isBot) {
-            return redirect()->route('home', ['tweet' => $tweetUrl]);
+            $signature = bin2hex(random_bytes(4));
+            session()->put("sig:{$signature}", true);
+            $query['src'] = "xdl_{$signature}";
         }
 
-        $tweet = Tweet::where('tweet_id', $tweetId)->first();
-
-        if (!$tweet || empty($tweet->media)) {
-            $related = Tweet::where('related_tweet_id', $tweetId)->first();
-
-            if (!$related) {
-                Log::warning('[Redirect] Tweet not found', [
-                    'tweet_id' => $tweetId,
-                    'agent'    => $userAgent,
-                    'ip'       => $request->ip(),
-                    'fallback' => 'home',
-                ]);
-
-                return redirect()->route('home', ['tweet' => $tweetUrl]);
-            }
-
-            return $this->renderMeta($related);
-        }
-
-        return response()->view('meta.preview', $this->buildMetaFromTweet($tweet));
-    }
-
-    protected function buildMetaFromTweet(Tweet $tweet): array
-    {
-        $media = collect($tweet->media)->firstWhere('type', 'video');
-        if (!$media || empty($media['video'])) {
-            return [];
-        }
-
-        $best = collect($media['video'])->sortByDesc('bitrate')->first();
-
-        return [
-            'tweetId'  => $tweet->tweet_id,
-            'media'    => $media,
-            'username' => $tweet->username,
-            'videoUrl' => $best['url'] ?? null,
-            'preview'  => $media['preview_url'] ?? null,
-        ];
-    }
-
-    protected function renderMeta(Tweet $tweet)
-    {
-        $meta = $this->buildMetaFromTweet($tweet);
-
-        if (empty($meta['videoUrl'])) {
-            return redirect()->route('home', ['tweetId' => $tweet->tweet_id]);
-        }
-
-        return response()->view('meta.preview', $meta);
+        return response()->view('meta.preview', array_merge($meta, [
+            'isBot'       => $isBot,
+            'redirectUrl' => route('home', $query),
+        ]));
     }
 }

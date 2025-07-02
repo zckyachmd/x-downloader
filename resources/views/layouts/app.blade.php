@@ -29,14 +29,14 @@
     <meta property="og:site_name" content="{{ config('app.name') }}">
     <meta property="og:image" content="{{ $preview ?? url('assets/img/video-preview.jpg') }}">
     @if (!empty($videoUrl))
-    <meta property="og:type" content="video.other">
-    <meta property="og:video" content="{{ $videoUrl }}">
-    <meta property="og:video:secure_url" content="{{ $videoUrl }}">
-    <meta property="og:video:type" content="video/mp4">
-    <meta property="og:video:width" content="{{ $media['resolution_width'] ?? 720 }}">
-    <meta property="og:video:height" content="{{ $media['resolution_height'] ?? 1280 }}">
+        <meta property="og:type" content="video.other">
+        <meta property="og:video" content="{{ $videoUrl }}">
+        <meta property="og:video:secure_url" content="{{ $videoUrl }}">
+        <meta property="og:video:type" content="video/mp4">
+        <meta property="og:video:width" content="{{ $media['resolution_width'] ?? 720 }}">
+        <meta property="og:video:height" content="{{ $media['resolution_height'] ?? 1280 }}">
     @else
-    <meta property="og:type" content="website">
+        <meta property="og:type" content="website">
     @endif
 
     {{-- Twitter Meta --}}
@@ -47,17 +47,18 @@
     <meta name="twitter:description" content="{{ $description ?? '' }}">
     <meta name="twitter:image" content="{{ $preview ?? url('assets/img/video-preview.jpg') }}">
     @if (!empty($videoUrl))
-    <meta name="twitter:player" content="{{ $videoUrl }}">
-    <meta name="twitter:player:stream" content="{{ $videoUrl }}">
-    <meta name="twitter:player:stream:content_type" content="video/mp4">
-    <meta name="twitter:player:width" content="{{ $media['resolution_width'] ?? 720 }}">
-    <meta name="twitter:player:height" content="{{ $media['resolution_height'] ?? 1280 }}">
+        <meta name="twitter:player" content="{{ $videoUrl }}">
+        <meta name="twitter:player:stream" content="{{ $videoUrl }}">
+        <meta name="twitter:player:stream:content_type" content="video/mp4">
+        <meta name="twitter:player:width" content="{{ $media['resolution_width'] ?? 720 }}">
+        <meta name="twitter:player:height" content="{{ $media['resolution_height'] ?? 1280 }}">
     @endif
 
     {{-- Schema.org --}}
     <meta itemprop="name" content="{{ $title ?? '' }}">
     <meta itemprop="description" content="{{ $description ?? '' }}">
     <meta itemprop="thumbnailUrl" content="{{ $preview ?? url('assets/img/video-preview.jpg') }}">
+    @stack('meta')
 
     {{-- CSS --}}
     <link rel="stylesheet" href="{{ url('css/styles.css') }}" />

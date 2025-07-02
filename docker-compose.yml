@@ -1,97 +1,86 @@
 services:
-    app:
-        build:
-            context: .
-            dockerfile: Dockerfile
-        container_name: x-downloader-app
-        restart: unless-stopped
-        working_dir: /var/www
-        env_file:
-            - .env
-        environment:
-            DB_CONNECTION: pgsql
-            DB_HOST: x-downloader-db
-            DB_PORT: 5432
-            REDIS_CLIENT: phpredis
-            REDIS_HOST: x-downloader-redis
-            REDIS_PORT: 6379
-            REDIS_PASSWORD: null
-            CACHE_DRIVER: redis
-            CACHE_STORE: redis
-            QUEUE_CONNECTION: redis
-            APP_MAINTENANCE_DRIVER: cache
-            APP_MAINTENANCE_STORE: redis
-        volumes:
-            - ./storage/logs:/var/www/storage/logs
-            - ./.env:/var/www/.env:ro
-            - laravel_public:/var/www/public
-        depends_on:
-            postgres:
-                condition: service_healthy
-            redis:
-                condition: service_healthy
-        networks:
-            - x_downloader_net
+  app:
+    build:
+      context: .
+      dockerfile: docker/php/Dockerfile
+    container_name: laravel-app
+    restart: unless-stopped
+    working_dir: /var/www
+    environment:
+      DB_CONNECTION: pgsql
+      DB_HOST: db
+      DB_PORT: 5432
+      REDIS_CLIENT: phpredis
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: null
+      CACHE_DRIVER: redis
+      SESSION_DRIVER: redis
+      QUEUE_CONNECTION: database
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - laravel
 
-    nginx:
-        image: nginx:stable
-        container_name: x-downloader-web
-        restart: unless-stopped
-        ports:
-            - "${APP_PORT:-8080}:80"
-        volumes:
-            - ./nginx.conf:/etc/nginx/nginx.conf
-            - laravel_public:/var/www/public:ro
-        depends_on:
-            - app
-        networks:
-            - x_downloader_net
+  nginx:
+    image: nginx:stable
+    container_name: laravel-nginx
+    restart: unless-stopped
+    ports:
+      - "${APP_PORT:-8080}:80"
+    volumes:
+      - ./docker/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - app
+    networks:
+      - laravel
 
-    postgres:
-        image: postgres:16
-        container_name: x-downloader-db
-        restart: unless-stopped
-        ports:
-            - "${DB_PORT:-5432}:5432"
-        environment:
-            POSTGRES_DB: ${DB_DATABASE}
-            POSTGRES_USER: ${DB_USERNAME}
-            POSTGRES_PASSWORD: ${DB_PASSWORD}
-        volumes:
-            - pg_data:/var/lib/postgresql/data
-        healthcheck:
-            test:
-                ["CMD-SHELL", "pg_isready -U ${DB_USERNAME} -d ${DB_DATABASE}"]
-            interval: 10s
-            timeout: 5s
-            retries: 5
-            start_period: 5s
-        networks:
-            - x_downloader_net
+  db:
+    image: postgres:16
+    container_name: laravel-postgres
+    restart: unless-stopped
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    networks:
+      - laravel
+    environment:
+      POSTGRES_DB: ${DB_DATABASE}
+      POSTGRES_USER: ${DB_USERNAME}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME} -d ${DB_DATABASE}"]
+      interval: 5s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
 
-    redis:
-        image: redis:7
-        container_name: x-downloader-redis
-        restart: unless-stopped
-        volumes:
-            - redis_data:/data
-        healthcheck:
-            test: ["CMD", "redis-cli", "ping"]
-            interval: 10s
-            timeout: 3s
-            retries: 5
-            start_period: 5s
-        networks:
-            - x_downloader_net
+  redis:
+    image: redis:7
+    container_name: laravel-redis
+    restart: unless-stopped
+    volumes:
+      - redis_data:/data
+    networks:
+      - laravel
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
 
 volumes:
-    laravel_public:
-    pg_data:
-    redis_data:
+  pg_data:
+  redis_data:
 
 networks:
-    x_downloader_net:
-        driver: bridge
-        ipam:
-            config:
-                - subnet: 172.25.0.0/24
+  laravel:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.25.0.0/24
