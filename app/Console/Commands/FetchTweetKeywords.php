@@ -71,6 +71,7 @@ class FetchTweetKeywords extends Command
                         $delay = $now->copy()->addSeconds($delaySeconds);
 
                         FetchTweetsKeywordJob::dispatch($username, $keyword, $mode)
+                            ->onQueue('medium')
                             ->delay($delay);
 
                         $this->line("⏳ [$delay] @$username → '$keyword' (mode=$mode, depth=$depth, delay={$delaySeconds}s)");

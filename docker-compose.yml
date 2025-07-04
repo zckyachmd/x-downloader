@@ -16,7 +16,7 @@ services:
       REDIS_PASSWORD: null
       CACHE_DRIVER: redis
       SESSION_DRIVER: redis
-      QUEUE_CONNECTION: database
+      QUEUE_CONNECTION: redis
     depends_on:
       db:
         condition: service_healthy

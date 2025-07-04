@@ -55,6 +55,7 @@ class RefreshInactiveTwitterAccounts extends Command
             $delay  = now()->addSeconds(($i * $baseDelay) + $jitter);
 
             RefreshTwitterAccountJob::dispatch($account->username, $mode)
+                ->onQueue('high')
                 ->delay($delay);
 
             $this->line("⏳ Delayed @$account->username by {$delay->diffInSeconds(now())}s");

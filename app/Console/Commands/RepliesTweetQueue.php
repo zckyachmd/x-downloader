@@ -67,6 +67,7 @@ class RepliesTweetQueue extends Command
             $delayAt = $now->copy()->addSeconds($delayTotal);
 
             ReplyToQueuedJob::dispatch($tweet->id)
+                ->onQueue('medium')
                 ->delay($delayAt);
 
             $this->line("🚀 Reply job for {$tweet->tweet_id} scheduled at {$delayAt->format('H:i:s')} (delay +{$jitter}s +{$burstWait}s)");

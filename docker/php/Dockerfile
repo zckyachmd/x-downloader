@@ -1,6 +1,6 @@
 FROM composer:latest AS composer
 
-FROM php:8.2-fpm
+FROM php:8.3-fpm
 
 ARG APP_ENV=production
 ENV APP_ENV=${APP_ENV}
@@ -13,7 +13,7 @@ RUN apt-get update && apt-get install -y \
     libgmp-dev tzdata \
   && pecl install redis \
   && docker-php-ext-enable redis \
-  && docker-php-ext-install pdo pdo_pgsql zip gmp \
+  && docker-php-ext-install pcntl pdo pdo_pgsql zip gmp \
   && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /var/www
@@ -30,7 +30,7 @@ RUN composer install --no-interaction --prefer-dist && \
 
 # --- Laravel file prep & permission ---
 RUN mkdir -p storage/framework/{cache,sessions,views} storage/logs bootstrap/cache && \
-    touch storage/logs/{worker.log,scheduler.log,php-fpm.log} && \
+    touch storage/logs/{horizon.log,scheduler.log,php-fpm.log} && \
     chmod -R 775 storage bootstrap/cache && \
     chmod -R 755 public && \
     if [ "$APP_ENV" = "production" ]; then \
