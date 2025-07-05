@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Contracts\PendingJobCheckerContract;
 use App\Jobs\ReplyToQueuedJob;
 use App\Models\Config;
 use App\Models\Tweet;
@@ -11,10 +12,18 @@ use Illuminate\Console\Command;
 class RepliesTweetQueue extends Command
 {
     protected $signature = 'twitter:replies-queue
-        {--limit=5 : Max tweets to dispatch}
+        {--limit=3 : Max tweets to dispatch}
         {--force : Force run even if AUTO_TWEET_REPLY is false}';
 
     protected $description = 'Dispatch reply jobs for tweets (status=queue) with related_tweet_id';
+
+    protected PendingJobCheckerContract $jobChecker;
+
+    public function __construct(PendingJobCheckerContract $jobChecker)
+    {
+        parent::__construct();
+        $this->jobChecker = $jobChecker;
+    }
 
     public function handle()
     {
@@ -24,7 +33,14 @@ class RepliesTweetQueue extends Command
             return self::SUCCESS;
         }
 
-        $limit = (int) $this->option('limit', 5);
+        $pendingJobsCount = $this->jobChecker->getPendingReplyJobsCount();
+
+        $max      = (int) $this->option('limit', 3);
+        $jobLimit = max(1, $max - $pendingJobsCount);
+
+        if ($pendingJobsCount > 0) {
+            $this->warn("⚠️ There are {$pendingJobsCount} pending reply jobs. Reducing the number of new jobs.");
+        }
 
         $excluded = UserTwitter::getExcludedUsernames()
             ->map(fn ($u) => strtolower($u))
@@ -38,7 +54,7 @@ class RepliesTweetQueue extends Command
                 $excluded,
             )
             ->orderBy('created_at')
-            ->limit($limit)
+            ->limit($jobLimit)
             ->get();
 
         if ($tweets->isEmpty()) {
@@ -49,7 +65,7 @@ class RepliesTweetQueue extends Command
 
         $now        = now();
         $dispatched = 0;
-        $delayTotal = 0;
+        $totalDelay = 0;
 
         foreach ($tweets as $i => $tweet) {
             $updated = Tweet::whereKey($tweet->id)
@@ -61,21 +77,21 @@ class RepliesTweetQueue extends Command
                 continue;
             }
 
-            $jitter    = rand(5, 25);
-            $burstWait = ($i > 0 && $i % 3 === 0) ? rand(20, 40) : 0;
-            $delayTotal += $jitter + $burstWait;
-            $delayAt = $now->copy()->addSeconds($delayTotal);
+            $jitter       = rand(20, 35);
+            $burstPadding = ($i >= 1 && $i % 2 === 0) ? rand(30, 60) : 0;
+
+            $totalDelay += $jitter + $burstPadding;
+            $delayAt = $now->copy()->addSeconds($totalDelay);
 
             ReplyToQueuedJob::dispatch($tweet->id)
                 ->onQueue('medium')
                 ->delay($delayAt);
 
-            $this->line("🚀 Reply job for {$tweet->tweet_id} scheduled at {$delayAt->format('H:i:s')} (delay +{$jitter}s +{$burstWait}s)");
-
+            $this->line("🚀 Reply for {$tweet->tweet_id} → {$delayAt->format('H:i:s')} (+{$jitter}s +{$burstPadding}s)");
             $dispatched++;
         }
 
-        $this->info("✅ $dispatched reply jobs dispatched.");
+        $this->info("✅ $dispatched replies dispatched (max=$jobLimit, spread=$totalDelay s).");
 
         return self::SUCCESS;
     }

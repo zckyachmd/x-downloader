@@ -3,7 +3,6 @@ services:
     build:
       context: .
       dockerfile: docker/php/Dockerfile
-    container_name: laravel-app
     working_dir: /var/www
     environment:
       DB_CONNECTION: pgsql

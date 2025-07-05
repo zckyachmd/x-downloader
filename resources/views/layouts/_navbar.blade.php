@@ -7,10 +7,12 @@
         <div class="collapse navbar-collapse" id="navbarSupportedContent">
             <ul class="navbar-nav ms-auto me-lg-5">
                 <li class="nav-item"><a class="nav-link" href="{{ route('home') }}">Home</a></li>
-                <li class="nav-item"><a class="nav-link" href="#!">About</a></li>
-                <li class="nav-item"><a class="nav-link" href="#!">FAQ</a></li>
+                <li class="nav-item">
+                    <a class="nav-link" href="#" data-bs-toggle="modal" data-bs-target="#aboutModal">About</a>
+                </li>
+                <li class="nav-item"><a class="nav-link" href="{{ route('home') }}#faq">FAQ</a></li>
             </ul>
-            <a class="btn fw-500 ms-lg-4 btn-primary" href="#!">
+            <a class="btn fw-500 ms-lg-4 btn-primary" href="https://x.com/x_downloader" target="_blank" rel="noopener">
                 Find us on X
             </a>
         </div>

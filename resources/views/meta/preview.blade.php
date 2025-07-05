@@ -5,6 +5,10 @@
     $description = "Watch and download X video (ID: {$tweetId})";
 @endphp
 
+@section('meta')
+    <meta name="robots" content="{{ $robots ?? 'noindex, nofollow' }}">
+@endsection
+
 @section('content')
 <div class="container py-5 d-flex justify-content-center align-items-center" style="min-height: 70vh;">
     <div class="card text-center shadow-sm border-0 px-4 py-5" style="max-width: 420px; width: 100%;">

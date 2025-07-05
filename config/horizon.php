@@ -179,42 +179,50 @@ return [
     |
     */
 
-    'defaults' => [
-        'supervisor-default' => [
-            'connection' => 'redis',
-            'queue' => ['high', 'medium', 'low', 'default'],
-            'balance' => 'auto',
-            'autoScalingStrategy' => 'time',
-            'maxProcesses' => 3,
-            'balanceMaxShift' => 1,
-            'balanceCooldown' => 3,
-            'maxTime' => 0,
-            'maxJobs' => 0,
-            'memory' => 256,
-            'tries' => 3,
-            'timeout' => 60,
-            'nice' => 0,
-        ],
-    ],
-
     'environments' => [
         'production' => [
-            'supervisor-default' => [
-                'maxProcesses' => 10,
+            'high-priority' => [
+                'connection' => 'redis',
+                'queue' => ['high'],
+                'maxProcesses' => 5,
                 'tries' => 5,
+                'timeout' => 60,
                 'memory' => 256,
+                'balance' => 'auto',
+                'autoScalingStrategy' => 'time',
+            ],
+            'medium-priority' => [
+                'connection' => 'redis',
+                'queue' => ['medium'],
+                'maxProcesses' => 3,
+                'tries' => 3,
                 'timeout' => 90,
-                'balanceMaxShift' => 2,
-                'balanceCooldown' => 3,
+                'memory' => 256,
+                'balance' => 'auto',
+                'autoScalingStrategy' => 'time',
+            ],
+            'low-priority' => [
+                'connection' => 'redis',
+                'queue' => ['low', 'default'],
+                'maxProcesses' => 2,
+                'tries' => 2,
+                'timeout' => 60,
+                'memory' => 256,
+                'balance' => 'auto',
+                'autoScalingStrategy' => 'time',
             ],
         ],
 
         'local' => [
             'supervisor-default' => [
+                'connection' => 'redis',
+                'queue' => ['high', 'medium', 'low', 'default'],
                 'maxProcesses' => 3,
                 'tries' => 1,
                 'memory' => 128,
                 'timeout' => 60,
+                'balance' => 'auto',
+                'autoScalingStrategy' => 'time',
             ],
         ],
     ],
