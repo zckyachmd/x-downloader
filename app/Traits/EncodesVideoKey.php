@@ -8,13 +8,17 @@ trait EncodesVideoKey
 
     public function encodeVideoKey(int $tweetId, int $index): string
     {
-        $binary = pack('J', $tweetId) . pack('C', $index);
+        $binary = pack('Q', $tweetId) . pack('C', $index);
 
         return $this->base62Encode($binary);
     }
 
     public function decodeVideoKey(string $encoded): ?array
     {
+        if (strlen($encoded) > 14 || strspn($encoded, self::$alphabet) !== strlen($encoded)) {
+            return null;
+        }
+
         try {
             $binary = $this->base62Decode($encoded);
         } catch (\Throwable) {
@@ -25,7 +29,7 @@ trait EncodesVideoKey
             return null;
         }
 
-        $unpackedId = unpack('Jtweet_id', substr($binary, 0, 8));
+        $unpackedId = unpack('Qtweet_id', substr($binary, 0, 8));
         $unpackedIx = unpack('Cindex', substr($binary, 8, 1));
 
         if (!$unpackedId || !$unpackedIx) {

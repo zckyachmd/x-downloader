@@ -63,7 +63,7 @@ class TweetVideoService implements TweetVideoServiceContract
                 $videoKey = $variant['key'] ?? null;
 
                 if ($proxyPreviewImage && $videoKey) {
-                    $variant['preview'] = route('tweet.thumbnail', ['videoKey' => $videoKey]);
+                    $variant['preview'] = route('tweet.thumbnail', ['key' => $videoKey]);
                 }
 
                 if (!$skipSignedRoute && !empty($variant['video']) && $videoKey) {

@@ -44,14 +44,23 @@ class TweetVideoController extends Controller
         ]);
     }
 
-    public function thumbnail(string $videoKey)
+    public function thumbnail(string $key)
     {
-        $resolved = $this->decodeVideoKey($videoKey);
+        $resolved = $this->decodeVideoKey($key);
+
+        if (!$resolved && is_numeric($key)) {
+            $resolved = [
+                'tweet_id' => (int) $key,
+                'index'    => 0,
+            ];
+        }
+
         if (!$resolved) {
             abort(404);
         }
 
         $result = $this->tweetVideoService->imageThumbnail($resolved['tweet_id'], $resolved['index']);
+
         if (!$result || !isset($result['stream'])) {
             abort(404);
         }

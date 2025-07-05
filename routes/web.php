@@ -20,7 +20,8 @@ Route::prefix('tweet')->group(function () {
         ->middleware(['ajax.only', 'throttle:tweet-search'])
         ->name('tweet.search');
 
-    Route::get('/{videoKey}/thumbnail', [TweetVideoController::class, 'thumbnail'])
+    Route::get('/{key}/thumbnail', [TweetVideoController::class, 'thumbnail'])
+        ->where('key', '^[A-Za-z0-9]+$')
         ->name('tweet.thumbnail');
 
     Route::get('/{videoKey}/preview', [TweetVideoController::class, 'preview'])

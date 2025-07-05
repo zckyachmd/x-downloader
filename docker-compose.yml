@@ -4,7 +4,6 @@ services:
       context: .
       dockerfile: docker/php/Dockerfile
     container_name: laravel-app
-    restart: unless-stopped
     working_dir: /var/www
     environment:
       DB_CONNECTION: pgsql
@@ -22,32 +21,24 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-    networks:
-      - laravel
 
   nginx:
     image: nginx:stable
     container_name: laravel-nginx
-    restart: unless-stopped
     ports:
       - "${APP_PORT:-8080}:80"
     volumes:
       - ./docker/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
     depends_on:
       - app
-    networks:
-      - laravel
 
   db:
     image: postgres:16
     container_name: laravel-postgres
-    restart: unless-stopped
     ports:
       - "${DB_PORT:-5432}:5432"
     volumes:
       - pg_data:/var/lib/postgresql/data
-    networks:
-      - laravel
     environment:
       POSTGRES_DB: ${DB_DATABASE}
       POSTGRES_USER: ${DB_USERNAME}
@@ -62,11 +53,8 @@ services:
   redis:
     image: redis:7
     container_name: laravel-redis
-    restart: unless-stopped
     volumes:
       - redis_data:/data
-    networks:
-      - laravel
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
