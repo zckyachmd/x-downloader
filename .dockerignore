@@ -1,24 +1,32 @@
-# Node & PHP dependencies
+# System
+.DS_Store
+Thumbs.db
+@eaDir
+
+# IDEs & tools
+.vscode
+.idea
+.fleet
+.phpactor.json
+.phpunit.*
+
+# Node & vendor
 node_modules
 vendor
 
-# Laravel specific
-.env
+# Laravel runtime files
+.env*
+Homestead.*
+public/hot
+public/storage
+public/build
+storage/*.key
+storage/pail
+storage/debugbar
+
+# Logs
 *.log
-.DS_Store
 
-# Storage
-storage/*
-!storage/app/
-!storage/framework/
-!storage/logs/
-
-# Docker dev files
-docker-compose.override.yml
-docker-compose.prod.yml
-
-# Synology DSM
-@eaDir
-
-# Git
-.git
+# Certs & keys
+*.crt
+*.key

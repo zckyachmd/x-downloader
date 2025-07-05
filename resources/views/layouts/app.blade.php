@@ -27,7 +27,11 @@
     <meta property="og:description" content="{{ $description ?? '' }}">
     <meta property="og:url" content="{{ url()->current() }}">
     <meta property="og:site_name" content="{{ config('app.name') }}">
-    <meta property="og:image" content="{{ $preview ?? url('assets/img/video-preview.jpg') }}">
+    <meta property="og:image" content="{{ $preview ?? url('assets/img/favicon.png') }}">
+    <meta property="og:image:secure_url" content="{{ $preview ?? url('asses/img/favicon.png') }}">
+    <meta property="og:image:type" content="image/jpeg">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
     @if (!empty($videoUrl))
         <meta property="og:type" content="video.other">
         <meta property="og:video" content="{{ $videoUrl }}">
@@ -45,7 +49,7 @@
     <meta name="twitter:creator" content="@@{{ $username ?? 'unknown' }}">
     <meta name="twitter:title" content="{{ $title ?? '' }}">
     <meta name="twitter:description" content="{{ $description ?? '' }}">
-    <meta name="twitter:image" content="{{ $preview ?? url('assets/img/video-preview.jpg') }}">
+    <meta name="twitter:image" content="{{ $preview ?? url('assets/img/favicon.png') }}">
     @if (!empty($videoUrl))
         <meta name="twitter:player" content="{{ $videoUrl }}">
         <meta name="twitter:player:stream" content="{{ $videoUrl }}">
@@ -57,7 +61,7 @@
     {{-- Schema.org --}}
     <meta itemprop="name" content="{{ $title ?? '' }}">
     <meta itemprop="description" content="{{ $description ?? '' }}">
-    <meta itemprop="thumbnailUrl" content="{{ $preview ?? url('assets/img/video-preview.jpg') }}">
+    <meta itemprop="thumbnailUrl" content="{{ $preview ?? url('assets/img/favicon.png') }}">
     @stack('meta')
 
     {{-- CSS --}}
@@ -89,6 +93,10 @@
             @include('layouts._footer')
         </div>
     </div>
+
+    {{-- Modal --}}
+    @include('layouts._modal')
+    @stack('modals')
 
     <script src="{{ url('js/bootstrap.bundle-5.2.3.js') }}"></script>
     <script src="{{ url('js/sweetalert2.js') }}"></script>

@@ -88,55 +88,61 @@ function renderTweetCard(data) {
 
     const gridItemsHtml = mediaList
         .map((media) => {
+            const variantCount = media.variants.length;
+
             const variantsHtml = media.variants
-                .map(
-                    (v) => `
-            <button
-                type="button"
-                class="btn btn-outline-primary btn-sm me-2 mb-2 btn-download"
-                style="white-space: nowrap"
-                data-video-key="${media.key}"
-                data-bitrate="${v.bitrate}"
-            >
-                ${v.resolution ?? "?"} • ${v.size ?? "?"}
-            </button>
-        `
-                )
+                .sort((a, b) => (b.bitrate ?? 0) - (a.bitrate ?? 0))
+                .map((v, i) => {
+                    const isLastOdd = variantCount % 2 === 1 && i === variantCount - 1;
+                    const colClass = variantCount === 1 ? "col-12" : isLastOdd ? "col-12" : "col-6";
+
+                    return `
+                        <div class="${colClass} mb-2">
+                            <button
+                                type="button"
+                                class="btn btn-outline-primary btn-sm w-100 btn-download"
+                                data-video-key="${media.key}"
+                                data-bitrate="${v.bitrate}"
+                            >
+                                ${v.resolution ?? "?"} • ${v.size ?? "?"}
+                            </button>
+                        </div>`;
+                })
                 .join("");
 
             return `
-            <div class="${
-                mediaList.length === 1
-                    ? "col-md-10 offset-md-1 mb-4 mt-4"
-                    : "col-md-6 mb-3 mt-3"
-            }">
-                <div class="media-card position-relative bg-black rounded overflow-hidden" style="aspect-ratio: 10 / 13; border: 1px solid rgba(0,0,0,0.1);">
-                    <video
-                        class="w-100 h-100 rounded"
-                        style="object-fit: contain"
-                        controls
-                        playsinline
-                        poster="${media.preview}"
-                        preload="metadata"
-                        controlsList="nodownload noplaybackrate"
-                        disablePictureInPicture
-                    >
-                        <source src="${media.video}" type="video/mp4" />
-                        Your browser does not support the video tag.
-                    </video>
+                <div class="${
+                    mediaList.length === 1
+                        ? "col-md-10 offset-md-1 mb-4 mt-4"
+                        : "col-md-6 mb-3 mt-3"
+                }">
+                    <div class="media-card position-relative bg-black rounded overflow-hidden" style="aspect-ratio: 10 / 13; border: 1px solid rgba(0,0,0,0.1);">
+                       <video
+                            class="w-100 h-100 rounded"
+                            style="object-fit: contain"
+                            playsinline
+                            poster="${media.preview}"
+                            preload="none"
+                            loading="lazy"
+                            controls
+                            controlsList="nodownload noplaybackrate"
+                            disablePictureInPicture
+                        >
+                            <source src="${media.video}" type="video/mp4" />
+                            Your browser does not support the video tag.
+                        </video>
 
-                    <span class="position-absolute top-0 end-0 m-2 px-2 py-1 bg-dark bg-opacity-75 text-white small rounded-pill" style="font-size: 0.65rem;">
-                        ${media.duration}
-                    </span>
-                </div>
+                        <span class="position-absolute top-0 end-0 m-2 px-2 py-1 bg-dark bg-opacity-75 text-white small rounded-pill" style="font-size: 0.65rem;">
+                            ${media.duration}
+                        </span>
+                    </div>
 
-                <div class="d-flex flex-wrap mt-3">
-                    ${variantsHtml}
-                </div>
-            </div>
-        `;
-        })
-        .join("");
+                    <div class="row gx-2 mt-3">
+                        ${variantsHtml}
+                    </div>
+                </div>`;
+            })
+            .join("");
 
     return `
         <div class="card border-0 shadow-sm p-4">
@@ -159,7 +165,7 @@ function renderTweetCard(data) {
                 </div>
             </div>
 
-            <div class="row gx-4 gy-4">
+            <div class="row gx-2 gy-2">
                 ${gridItemsHtml}
             </div>
 

@@ -12,19 +12,25 @@ Thumbs.db
 /.fleet/
 /.zed/
 
+# Node & vendor
+node_modules
+vendor
+
 # Laravel
 .env*
-/vendor/
-/node_modules/
 /storage/*.key
 /storage/pail
+/storage/debugbar/
 /public/storage
 /public/hot
 /public/build
 Homestead.json
 Homestead.yaml
 auth.json
-supervisord.pid
 
 # Logs
 *.log
+
+# Certificates
+*.crt
+*.key
