@@ -61,7 +61,9 @@ class RepliesTweetQueue extends Command
             ->where('is_main', true)
             ->orderByRaw('CASE WHEN last_used_at IS NULL THEN 0 ELSE 1 END, last_used_at ASC')
             ->limit($accountLimit)
-            ->get();
+            ->get()
+            ->filter(fn ($acc) => !$this->isOnCooldown($acc->id))
+            ->values();
 
         if ($accounts->isEmpty()) {
             $this->error('❌ No active main accounts available.');
@@ -104,6 +106,7 @@ class RepliesTweetQueue extends Command
                 ->onQueue('medium')
                 ->delay($runAt);
 
+            $this->scheduleRandomCooldown($account->id);
             $this->line("🚀 Reply for {$tweet->tweet_id} at {$runAt->format('H:i:s')} (+{$jitter}s +{$burstPadding}s) [@{$account->username}]");
 
             $dispatched++;
@@ -147,5 +150,27 @@ class RepliesTweetQueue extends Command
         if ($hourly === 1) {
             Cache::put($hourlyKey, $hourly, $hourlyTTL);
         }
+    }
+
+    protected function isOnCooldown(int $accountId): bool
+    {
+        return Cache::has("tweet:cooldown:{$accountId}");
+    }
+
+    protected function scheduleRandomCooldown(int $accountId): void
+    {
+        $hourKey = "tweet:cooldown:scheduled:{$accountId}:" . now()->format('YmdH');
+
+        if (Cache::has($hourKey)) {
+            return;
+        }
+
+        $delay = rand(0, 2700);
+        $ttl   = rand(60, 900);
+
+        Cache::put("tweet:cooldown:{$accountId}", true, $delay + $ttl);
+        Cache::put($hourKey, true, now()->endOfHour()->diffInRealSeconds());
+
+        $this->line("💤 Cooldown scheduled for @{$accountId}: in {$delay}s, for {$ttl}s");
     }
 }

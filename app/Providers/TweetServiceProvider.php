@@ -2,7 +2,9 @@
 
 namespace App\Providers;
 
+use App\Contracts\TrendingVideoServiceContract;
 use App\Contracts\TweetVideoServiceContract;
+use App\Services\TrendingVideoService;
 use App\Services\TweetVideoService;
 use Illuminate\Support\ServiceProvider;
 
@@ -14,6 +16,7 @@ class TweetServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->app->bind(TweetVideoServiceContract::class, TweetVideoService::class);
+        $this->app->bind(TrendingVideoServiceContract::class, TrendingVideoService::class);
     }
 
     /**

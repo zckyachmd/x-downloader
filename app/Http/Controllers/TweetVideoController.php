@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Contracts\TweetVideoServiceContract;
 use App\Http\Requests\TweetSearchRequest;
+use App\Models\VideoDownload;
 use App\Traits\EncodesVideoKey;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -124,10 +125,27 @@ class TweetVideoController extends Controller
             abort(404);
         }
 
-        $data = $this->tweetVideoService->streamVideo($resolved['tweet_id'], $resolved['index'], false, (int) $bitrate, $request->header('Range'));
+        $data = $this->tweetVideoService->streamVideo(
+            $resolved['tweet_id'],
+            $resolved['index'],
+            false,
+            (int) $bitrate,
+            $request->header('Range'),
+        );
+
         if (!$data) {
             return response()->json(['message' => 'This video is no longer available.'], 410);
         }
+
+        VideoDownload::updateOrCreate(
+            [
+                'tweet_id'    => $resolved['tweet_id'],
+                'video_index' => $resolved['index'],
+            ],
+            [
+                'last_downloaded_at' => now(),
+            ],
+        )->increment('total_count');
 
         $filename = config('app.name') . '_' . Str::random(6) . '.mp4';
         $length   = $data['end'] - $data['start'] + 1;

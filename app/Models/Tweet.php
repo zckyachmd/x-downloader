@@ -25,4 +25,9 @@ class Tweet extends Model
         'media'        => 'array',
         'is_sensitive' => 'boolean',
     ];
+
+    public function videoTrendings()
+    {
+        return $this->hasMany(VideoTrending::class, 'tweet_id', 'tweet_id');
+    }
 }
