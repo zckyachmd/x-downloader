@@ -18,6 +18,7 @@ class UserTwitter extends Model
         'user_agent',
         'is_active',
         'is_main',
+        'last_used_at',
     ];
 
     protected $hidden = [

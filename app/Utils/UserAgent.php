@@ -58,4 +58,37 @@ class UserAgent
     {
         return static::$agents[array_rand(static::$agents)];
     }
+
+    protected static array $socialBotKeywords = [
+        'twitterbot',
+        'facebookexternalhit',
+        'facebot',
+        'slackbot',
+        'discordbot',
+        'telegrambot',
+        'linkedinbot',
+        'whatsapp',
+        'applebot',
+        'redditbot',
+        'pinterest',
+        'skypeuripreview',
+        'google-structured-data-testing-tool',
+    ];
+
+    public static function isSocialMediaBot(?string $userAgent): bool
+    {
+        if (!$userAgent) {
+            return false;
+        }
+
+        $ua = strtolower($userAgent);
+
+        foreach (self::$socialBotKeywords as $keyword) {
+            if (str_contains($ua, $keyword)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
 }

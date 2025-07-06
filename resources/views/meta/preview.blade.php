@@ -1,12 +1,15 @@
 @extends('layouts.app')
 
 @php
-    $title = "Download X Video from @$username";
-    $description = "Watch and download X video (ID: {$tweetId})";
+$title = "Download X Video from @$username";
+$description = "Watch and download X video (ID: {$tweetId})";
+$robots = $isSocialBot ? 'index, follow' : 'noindex, nofollow';
 @endphp
 
 @section('meta')
-    <meta name="robots" content="{{ $robots ?? 'noindex, nofollow' }}">
+    <meta name="robots" content="{{ $robots }}">
+    <meta name="googlebot" content="{{ $robots }}">
+    <meta name="bingbot" content="{{ $robots }}">
 @endsection
 
 @section('content')
@@ -24,24 +27,24 @@
             You’ll be redirected in <span id="countdown" class="fw-bold text-dark">5</span> seconds.
         </p>
 
-        @unless($isBot)
-            <div id="manualRedirectBtn" class="d-none" data-url="{{ $redirectUrl }}"></div>
+        @unless($isSocialBot)
+        <div id="manualRedirectBtn" class="d-none" data-url="{{ $redirectUrl }}"></div>
 
-            <noscript>
-                <div class="mt-4">
-                    <a href="{{ $redirectUrl }}" class="btn btn-primary btn-sm px-4">
-                        Continue to the video
-                    </a>
-                    <p class="text-muted small mt-2 mb-0">JavaScript is disabled, please click manually.</p>
-                </div>
-            </noscript>
+        <noscript>
+            <div class="mt-4">
+                <a href="{{ $redirectUrl }}" class="btn btn-primary btn-sm px-4">
+                    Continue to the video
+                </a>
+                <p class="text-muted small mt-2 mb-0">JavaScript is disabled, please click manually.</p>
+            </div>
+        </noscript>
         @endunless
     </div>
 </div>
 @endsection
 
 @push('scripts')
-@unless($isBot)
+@unless($isSocialBot)
 <script>
     $(function () {
         const $countdown = $('#countdown');

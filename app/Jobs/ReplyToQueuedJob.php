@@ -24,11 +24,13 @@ class ReplyToQueuedJob implements ShouldQueue
 
     public int $tries;
     protected int $tweetId;
+    protected int $accountId;
 
-    public function __construct(int $tweetId)
+    public function __construct(int $tweetId, int $accountId)
     {
-        $this->tweetId = $tweetId;
-        $this->tries   = (int) env('QUEUE_TRIES', 3);
+        $this->tweetId   = $tweetId;
+        $this->accountId = $accountId;
+        $this->tries     = (int) env('QUEUE_TRIES', 3);
     }
 
     public function handle(): void
@@ -57,13 +59,10 @@ class ReplyToQueuedJob implements ShouldQueue
                 return;
             }
 
-            $account = UserTwitter::where('is_main', true)
-                ->where('is_active', true)
-                ->orderBy('updated_at')
-                ->first();
+            $account = UserTwitter::find($this->accountId);
 
-            if (!$account) {
-                Log::warning("[ReplyQueueJob] No active account available.");
+            if (!$account || !$account->is_active) {
+                Log::warning("[ReplyQueueJob] Account not found or inactive (ID: {$this->accountId})");
                 $tweet->update(['status' => 'failed-reply']);
 
                 return;
@@ -104,15 +103,14 @@ class ReplyToQueuedJob implements ShouldQueue
 
             $endpoint = rtrim(Config::getValue('API_X_DOWNLOADER', 'http://localhost:3000'), '/') . '/tweet/create';
 
-            $res = Http::timeout(20)
-                ->post($endpoint, [
-                    'bearer_token'   => $bearer,
-                    'csrf_token'     => $csrf,
-                    'cookie'         => $cookie,
-                    'user_agent'     => $agent,
-                    'reply_tweet_id' => $tweet->tweet_id,
-                    'text'           => $replyText,
-                ]);
+            $res = Http::timeout(15)->post($endpoint, [
+                'bearer_token'   => $bearer,
+                'csrf_token'     => $csrf,
+                'cookie'         => $cookie,
+                'user_agent'     => $agent,
+                'reply_tweet_id' => $tweet->tweet_id,
+                'text'           => $replyText,
+            ]);
 
             $status    = $res->status();
             $body      = $res->body();
@@ -131,6 +129,7 @@ class ReplyToQueuedJob implements ShouldQueue
                 && !str_contains($bodyLower, 'error');
 
             if ($replySuccess) {
+                $account->forceFill(['last_used_at' => now()])->save();
                 $tweet->update(['status' => 'replied']);
                 Log::info("[ReplyQueueJob] ✅ Replied to {$tweet->tweet_id}");
 
@@ -163,6 +162,7 @@ class ReplyToQueuedJob implements ShouldQueue
     public function failed(\Throwable $exception): void
     {
         $tweet = Tweet::find($this->tweetId);
+
         if ($tweet && $tweet->status === 'queue') {
             $tweet->update(['status' => 'failed-reply']);
             Log::error("[ReplyQueueJob] ❌ Marked as failed-reply after {$this->tries} tries: {$tweet->tweet_id}");
@@ -171,7 +171,7 @@ class ReplyToQueuedJob implements ShouldQueue
 
     public function tags(): array
     {
-        return ['tweet-queue-reply', "tweet:{$this->tweetId}"];
+        return ['tweet-queue-reply', "tweet:{$this->tweetId}", "account:{$this->accountId}"];
     }
 
     public function backoff(): array

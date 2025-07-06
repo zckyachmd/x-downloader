@@ -14,14 +14,14 @@ class FetchTweetKeywords extends Command
         {--mode=all : Mode to fetch: all, fresh, or historical}
         {--limit=3 : Limit number of accounts}
         {--max-keyword=3 : Limit keywords from config}
-        {--force : Override AUTO_TWEET_REPLY check}';
+        {--force : Override AUTO_SEARCH_TWEET check}';
 
     protected $description = 'Dispatch fetch jobs per keyword per account with staggered delays';
 
     public function handle()
     {
-        if (!$this->option('force') && !Config::getValue('AUTO_TWEET_REPLY', true)) {
-            $this->warn("⚠️ AUTO_TWEET_REPLY is disabled. Use --force to override.");
+        if (!$this->option('force') && !Config::getValue('AUTO_SEARCH_TWEET', true)) {
+            $this->warn("⚠️ AUTO_SEARCH_TWEET is disabled. Use --force to override.");
 
             return self::SUCCESS;
         }
@@ -46,9 +46,9 @@ class FetchTweetKeywords extends Command
         $accounts = UserTwitter::query()
             ->where('is_active', true)
             ->where('is_main', false)
-            ->inRandomOrder()
+            ->orderByRaw('CASE WHEN last_used_at IS NULL THEN 0 ELSE 1 END, last_used_at ASC')
             ->limit($accountLimit)
-            ->pluck('username');
+            ->get();
 
         if ($keywords->isEmpty() || $accounts->isEmpty()) {
             $this->warn("❌ No keywords or accounts available.");
@@ -74,12 +74,19 @@ class FetchTweetKeywords extends Command
         $keywordMap  = [];
 
         foreach ($keywords as $i => $keyword) {
-            $accountIndex            = $i % $accountList->count();
-            $username                = $accountList[$accountIndex];
-            $keywordMap[$username][] = $keyword;
+            $accountIndex                     = $i % $accountList->count();
+            $account                          = $accountList[$accountIndex];
+            $keywordMap[$account->username][] = $keyword;
         }
 
-        foreach ($accountList as $accountIndex => $username) {
+        foreach ($accountList as $accountIndex => $account) {
+            $username = $account->username;
+
+            if (empty($keywordMap[$username])) {
+                $this->warn("⚠️ @$username has no keywords assigned. Skipping.");
+                continue;
+            }
+
             if ($this->isAccountLocked($username)) {
                 $this->warn("🔁 @$username is still in progress. Skipping.");
                 continue;
@@ -87,11 +94,10 @@ class FetchTweetKeywords extends Command
 
             $this->lockAccount($username);
 
-            $startTime              = $now->copy()->addSeconds($accountStartOffset($accountIndex));
-            $current                = clone $startTime;
-            $keywordsForThisAccount = collect($keywordMap[$username] ?? []);
+            $startTime = $now->copy()->addSeconds($accountStartOffset($accountIndex));
+            $current   = clone $startTime;
 
-            foreach ($keywordsForThisAccount as $keyword) {
+            foreach ($keywordMap[$username] as $keyword) {
                 $modes = $modeOption === 'all' ? ['fresh', 'historical'] : [$modeOption];
 
                 foreach ($modes as $mode) {
@@ -117,6 +123,7 @@ class FetchTweetKeywords extends Command
                 $jobIndex += ($modeOption === 'all') ? ($maxDepth >= 3 ? 1 + ($maxDepth - 1) : 2) : $maxDepth;
             }
 
+            $account->update(['last_used_at' => now()]);
             $this->info("📨 Dispatched $jobIndex jobs for @$username.");
         }
 
@@ -125,12 +132,11 @@ class FetchTweetKeywords extends Command
 
     protected function isAccountLocked(string $username): bool
     {
-        return Cache::has("fetch-lock:$username");
+        return !Cache::lock("fetch-lock:$username", 40 * 60)->get();
     }
 
     protected function lockAccount(string $username): void
     {
-        $lockDuration = 40 * 60;
-        Cache::put("fetch-lock:$username", true, $lockDuration);
+        Cache::lock("fetch-lock:$username", 40 * 60)->get();
     }
 }

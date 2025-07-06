@@ -159,7 +159,7 @@
 @endsection
 
 @push('scripts')
-<script src="{{ url('js/home.js?v=' . config('app.version')) }}"></script>
+<script src="{{ url('js/home.js?v='. config('app.version')) }}"></script>
 <script>
     window.routes = {
         tweetDownload: @json(route('tweet.download', ['videoKey' => ':videoKey'])),

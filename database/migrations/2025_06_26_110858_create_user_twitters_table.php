@@ -19,7 +19,10 @@ return new class () extends Migration {
             $table->string('user_agent', 512)->nullable();
             $table->boolean('is_main')->default(false);
             $table->boolean('is_active')->default(true);
+            $table->timestamp('last_used_at')->nullable();
             $table->timestamps();
+
+            $table->index(['is_main', 'is_active', 'last_used_at']);
         });
     }
 

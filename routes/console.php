@@ -10,6 +10,6 @@ Schedule::command('twitter:fetch-tweets --mode=all --limit=3 --max-keyword=3')
     ->everyFifteenMinutes()
     ->withoutOverlapping(540);
 
-Schedule::command('twitter:replies-queue --limit=5')
+Schedule::command('twitter:replies-queue --limit=6 --max-account=2 --usage=85')
     ->everyFiveMinutes()
     ->withoutOverlapping(30);

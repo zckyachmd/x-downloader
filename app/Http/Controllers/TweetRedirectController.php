@@ -3,23 +3,17 @@
 namespace App\Http\Controllers;
 
 use App\Models\Tweet;
+use App\Utils\UserAgent;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
-use Jaybizzle\CrawlerDetect\CrawlerDetect;
 
 class TweetRedirectController extends Controller
 {
-    protected CrawlerDetect $crawler;
-
-    public function __construct(CrawlerDetect $crawler)
-    {
-        $this->crawler = $crawler;
-    }
-
     public function handle(Request $request, string $prefix, string $tweetId)
     {
-        $isBot    = $this->crawler->isCrawler($request->userAgent());
-        $tweetUrl = "https://x.com/{$prefix}/status/{$tweetId}";
+        $userAgent   = $request->userAgent();
+        $isSocialBot = UserAgent::isSocialMediaBot($request->userAgent());
+        $tweetUrl    = "https://x.com/{$prefix}/status/{$tweetId}";
 
         $tweet = Tweet::where('tweet_id', $tweetId)->first()
             ?? Tweet::where('related_tweet_id', $tweetId)->first();
@@ -27,7 +21,7 @@ class TweetRedirectController extends Controller
         if (!$tweet) {
             Log::warning('[Redirect] Tweet not found', [
                 'tweet_id' => $tweetId,
-                'agent'    => $request->userAgent(),
+                'agent'    => $userAgent,
                 'ip'       => $request->ip(),
             ]);
 
@@ -54,14 +48,14 @@ class TweetRedirectController extends Controller
 
         $query = ['tweet' => $tweetUrl];
 
-        if (!$isBot) {
+        if (!$isSocialBot) {
             $signature = bin2hex(random_bytes(4));
             session()->put("sig:{$signature}", true);
             $query['src'] = "xdl_{$signature}";
         }
 
         return response()->view('meta.preview', array_merge($meta, [
-            'isBot'       => $isBot,
+            'isSocialBot' => $isSocialBot,
             'redirectUrl' => route('home', $query),
         ]));
     }

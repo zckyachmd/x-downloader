@@ -31,6 +31,13 @@ class ConfigSeeder extends Seeder
                 'type'        => 'boolean',
             ],
             [
+                'key'         => 'AUTO_SEARCH_TWEET',
+                'name'        => 'Auto Search Tweet',
+                'description' => 'Mengaktifkan pencarian tweet berdasarkan kata kunci yang akan diantri untuk dibalas.',
+                'value'       => 'true',
+                'type'        => 'boolean',
+            ],
+            [
                 'key'         => 'AUTO_TWEET_REPLY',
                 'name'        => 'Auto Tweet Reply',
                 'description' => 'Mencari dan Mengirim balasan tweet secara otomatis berdasarkan kata kunci.',
@@ -41,7 +48,7 @@ class ConfigSeeder extends Seeder
                 'key'         => 'TWEET_SEARCH_KEYWORDS',
                 'name'        => 'Tweet Search Keywords',
                 'description' => 'Kata kunci yang dipakai untuk mencari tweet (misalnya akun, hashtag, atau frasa), pisahkan dengan titik koma (;) untuk menggunakan beberapa kata kunci.',
-                'value'       => '@StreamviDL; @TweetHelperBot; @xdownloaderbot; @xviddl',
+                'value'       => '@TweetHelperBot; @xdownloaderbot; @StreamviDL; @xviddl',
                 'type'        => 'string',
             ],
             [
@@ -74,10 +81,10 @@ class ConfigSeeder extends Seeder
                 'name'        => 'Tweet Reply Exclude Usernames',
                 'description' => 'Daftar username yang tidak diinginkan dalam balasan tweet. Pisahkan dengan titik koma (;).',
                 'value'       => json_encode([
-                    'StreamviDL',
                     'TweetHelperBot',
-                    'xviddl',
                     'xdownloaderbot',
+                    'xviddl',
+                    'StreamviDL',
                 ]),
                 'type' => 'json',
             ],
