@@ -28,10 +28,6 @@ RUN mkdir -p storage/framework/{cache,sessions,views} \
  && touch storage/logs/{horizon.log,scheduler.log,php-fpm.log} \
  && chmod -R 775 storage bootstrap/cache \
  && chmod -R 755 public \
- && php artisan config:clear \
- && php artisan config:cache \
- && php artisan route:cache \
- && php artisan view:cache \
  && if [ "$APP_ENV" = "production" ]; then \
       chown -R www-data:www-data /var/www; \
     fi
