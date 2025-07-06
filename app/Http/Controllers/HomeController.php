@@ -22,7 +22,6 @@ class HomeController extends Controller
         }
 
         return view('home', [
-            'title'      => 'Home',
             'tweetUrl'   => $tweetUrl,
             'autoSearch' => $autoSearch,
         ]);
