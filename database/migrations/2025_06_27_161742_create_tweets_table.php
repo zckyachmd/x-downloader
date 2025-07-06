@@ -20,6 +20,7 @@ return new class () extends Migration {
             $table->json('urls')->nullable();
             $table->json('media')->nullable();
             $table->string('status', 20)->default('queue');
+            $table->boolean('is_sensitive')->default(false);
             $table->timestamps();
 
             $table->unique(['user_id', 'tweet_id']);

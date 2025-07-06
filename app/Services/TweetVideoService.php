@@ -243,6 +243,7 @@ class TweetVideoService implements TweetVideoServiceContract
                             'urls'             => $data['urls'] ?? [],
                             'media'            => $data['media'] ?? [],
                             'status'           => 'video',
+                            'is_sensitive'     => $data['is_sensitive'] ?? false,
                         ],
                     );
 

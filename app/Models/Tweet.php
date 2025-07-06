@@ -17,10 +17,12 @@ class Tweet extends Model
         'urls',
         'media',
         'status',
+        'is_sensitive',
     ];
 
     protected $casts = [
-        'urls'  => 'array',
-        'media' => 'array',
+        'urls'         => 'array',
+        'media'        => 'array',
+        'is_sensitive' => 'boolean',
     ];
 }
