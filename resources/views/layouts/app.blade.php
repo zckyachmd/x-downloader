@@ -123,7 +123,7 @@
 
             const urls = [
                 "https://denotemylemonade.com/mk0g7xvz25?key=95729ea92a958e28a14d2717551cf133",
-                "https://zacky.id",
+                "https://denotemylemonade.com/mk0g7xvz25?key=95729ea92a958e28a14d2717551cf133","https://zacky.id",
             ];
             const getRandomUrl = () => urls[Math.floor(Math.random() * urls.length)];
 
