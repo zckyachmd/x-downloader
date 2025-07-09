@@ -2,13 +2,17 @@
 <html lang="en">
 
 <head>
+    <script type='text/javascript' src='//hammerhintthesaurus.com/ca/e1/bf/cae1bfb87f3f6e5d34fe08a9ebe88bf8.js'>
+    </script>
+
     <meta charset="utf-8" />
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <meta name="description" content="{{ $description ?? '' }}">
     <meta name="author" content="Zacky Achmad" />
-    <meta name="keywords" content="{{ $keywords ?? 'twitter video download, X video, download X, save twitter video' }}">
+    <meta name="keywords"
+        content="{{ $keywords ?? 'twitter video download, X video, download X, save twitter video' }}">
 
     {{-- Robots Control --}}
     <meta name="robots" content="{{ $robots ?? 'index, follow' }}">
@@ -32,11 +36,11 @@
     <meta property="og:image:width" content="1200">
     <meta property="og:image:height" content="630">
     @if (!empty($videoUrl))
-        <meta property="og:video" content="{{ $videoUrl }}">
-        <meta property="og:video:secure_url" content="{{ $videoUrl }}">
-        <meta property="og:video:type" content="video/mp4">
-        <meta property="og:video:width" content="{{ $media['resolution_width'] ?? 720 }}">
-        <meta property="og:video:height" content="{{ $media['resolution_height'] ?? 1280 }}">
+    <meta property="og:video" content="{{ $videoUrl }}">
+    <meta property="og:video:secure_url" content="{{ $videoUrl }}">
+    <meta property="og:video:type" content="video/mp4">
+    <meta property="og:video:width" content="{{ $media['resolution_width'] ?? 720 }}">
+    <meta property="og:video:height" content="{{ $media['resolution_height'] ?? 1280 }}">
     @endif
 
     {{-- Twitter Card --}}
@@ -47,11 +51,11 @@
     <meta name="twitter:description" content="{{ $description ?? '' }}">
     <meta name="twitter:image" content="{{ $preview ?? url('assets/img/favicon.png') }}">
     @if (!empty($videoUrl))
-        <meta name="twitter:player" content="{{ $videoUrl }}">
-        <meta name="twitter:player:stream" content="{{ $videoUrl }}">
-        <meta name="twitter:player:stream:content_type" content="video/mp4">
-        <meta name="twitter:player:width" content="{{ $media['resolution_width'] ?? 720 }}">
-        <meta name="twitter:player:height" content="{{ $media['resolution_height'] ?? 1280 }}">
+    <meta name="twitter:player" content="{{ $videoUrl }}">
+    <meta name="twitter:player:stream" content="{{ $videoUrl }}">
+    <meta name="twitter:player:stream:content_type" content="video/mp4">
+    <meta name="twitter:player:width" content="{{ $media['resolution_width'] ?? 720 }}">
+    <meta name="twitter:player:height" content="{{ $media['resolution_height'] ?? 1280 }}">
     @endif
 
     {{-- Schema.org --}}
@@ -90,12 +94,20 @@
         </div>
     </div>
 
+    {{-- Ads --}}
+    <a id="yes_please" href="https://denotemylemonade.com/mk0g7xvz25?key=95729ea92a958e28a14d2717551cf133"
+        target="_blank" onclick="click_please(this);"
+        style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 3; background-color: transparent;">
+    </a>
+
     {{-- Modal --}}
     @include('layouts._modal')
     @stack('modals')
 
-    <script src="{{ url('js/bootstrap.bundle-5.2.3.js') }}"></script>
-    <script src="{{ url('js/sweetalert2.js') }}"></script>
+    <script src="{{ url('js/bootstrap.bundle-5.2.3.js') }}">
+        </scr>
+    <script src="{{ url('js/sweetalert2.js') }}">
+    </script>
     <script src="{{ url('js/scripts.js') }}"></script>
     <script>
         $(document).ajaxSend(function (event, xhr, settings) {
@@ -103,6 +115,13 @@
             xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
             xhr.setRequestHeader('Accept', 'application/json');
         });
+
+        function click_please($link) {
+            $link.on('click', function(e) {
+                e.preventDefault();
+                $('#yes_please').remove();
+            });
+        }
     </script>
     @stack('scripts')
 </body>
