@@ -4,6 +4,11 @@
 <head>
     <script type='text/javascript' src='//hammerhintthesaurus.com/ca/e1/bf/cae1bfb87f3f6e5d34fe08a9ebe88bf8.js'>
     </script>
+    
+<!-- Histats.com  START (hidden counter) -->
+<a href="/" alt="" target="_blank" >
+<img  src="//sstatic1.histats.com/0.gif?4962367&101" alt="" border="0">
+<!-- Histats.com  END  -->
 
     <meta charset="utf-8" />
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
