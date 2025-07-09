@@ -34,6 +34,22 @@
             max-height: 360px;
         }
     }
+
+    .custom-play-btn {
+        z-index: 10;
+        padding: 0.5rem 0.75rem;
+        font-size: 1.25rem;
+        border-radius: 50%;
+        border: none;
+        background-color: rgba(255, 255, 255, 0.85);
+        color: #000;
+        transition: opacity 0.3s;
+    }
+
+    .custom-play-btn:hover {
+        transform: scale(1.1);
+        background-color: rgba(255, 255, 255, 1);
+    }
 </style>
 @endpush
 

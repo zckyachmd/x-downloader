@@ -23,8 +23,10 @@ $(document).ready(function () {
                 if (!data) return;
 
                 const cardHtml = renderTweetCard(data);
-
                 $("#tweet-result").html(cardHtml).removeClass("d-none");
+
+                bindCustomPlayButtons();
+
                 $("html, body").animate(
                     { scrollTop: $("#tweet-result").offset().top - 100 },
                     600
@@ -93,8 +95,14 @@ function renderTweetCard(data) {
             const variantsHtml = media.variants
                 .sort((a, b) => (b.bitrate ?? 0) - (a.bitrate ?? 0))
                 .map((v, i) => {
-                    const isLastOdd = variantCount % 2 === 1 && i === variantCount - 1;
-                    const colClass = variantCount === 1 ? "col-12" : isLastOdd ? "col-12" : "col-6";
+                    const isLastOdd =
+                        variantCount % 2 === 1 && i === variantCount - 1;
+                    const colClass =
+                        variantCount === 1
+                            ? "col-12"
+                            : isLastOdd
+                            ? "col-12"
+                            : "col-6";
 
                     return `
                         <div class="${colClass} mb-2">
@@ -118,19 +126,39 @@ function renderTweetCard(data) {
                 }">
                     <div class="media-card position-relative bg-black rounded overflow-hidden" style="aspect-ratio: 10 / 13; border: 1px solid rgba(0,0,0,0.1);">
                        <video
-                            class="w-100 h-100 rounded"
+                            id="video-${media.key}"
+                            class="w-100 h-100 rounded tweet-video"
                             style="object-fit: contain"
                             playsinline
                             poster="${media.preview}"
                             preload="none"
                             loading="lazy"
-                            controls
-                            controlsList="nodownload noplaybackrate"
-                            disablePictureInPicture
+                            data-video-key="${media.key}"
                         >
                             <source src="${media.video}" type="video/mp4" />
                             Your browser does not support the video tag.
                         </video>
+
+                        <button
+                            type="button"
+                            class="btn custom-play-btn position-absolute top-50 start-50 translate-middle"
+                            data-target="video-${media.key}"
+                            aria-label="Play"
+                            style="
+                                width: 64px;
+                                height: 64px;
+                                border-radius: 50%;
+                                background-color: rgba(255, 255, 255, 0.85);
+                                border: none;
+                                box-shadow: 0 0 10px rgba(0,0,0,0.2);
+                                font-size: 1.5rem;
+                                display: flex;
+                                align-items: center;
+                                justify-content: center;
+                            "
+                        >
+                            <i class="fas fa-play"></i>
+                        </button>
 
                         <span class="position-absolute top-0 end-0 m-2 px-2 py-1 bg-dark bg-opacity-75 text-white small rounded-pill" style="font-size: 0.65rem;">
                             ${media.duration}
@@ -141,8 +169,8 @@ function renderTweetCard(data) {
                         ${variantsHtml}
                     </div>
                 </div>`;
-            })
-            .join("");
+        })
+        .join("");
 
     return `
         <div class="card border-0 shadow-sm p-4">
@@ -174,4 +202,25 @@ function renderTweetCard(data) {
             </div>
         </div>
     `;
+}
+
+function bindCustomPlayButtons() {
+    $(".custom-play-btn").each(function () {
+        const $btn = $(this);
+        const videoId = $btn.data("target");
+        const $video = $("#" + videoId);
+
+        if (!$video.length) return;
+
+        $btn.on("click", function () {
+            const video = $video[0];
+
+            video.play().catch(console.warn);
+        });
+
+        $video.on("play", function () {
+            $btn.fadeOut(200);
+            $video.attr("controls", true);
+        });
+    });
 }

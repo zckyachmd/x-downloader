@@ -2,9 +2,12 @@
 
 namespace App\Utils;
 
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
+
 class UserAgent
 {
-    protected static array $agents = [
+    protected array $agents = [
         "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.4.1 Safari/605.1.15",
         "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.3.1 Safari/605.6.18",
         "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.5 Safari/605 Vienna/3.9.5",
@@ -54,12 +57,12 @@ class UserAgent
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36 Edg/135.0.1803.94",
     ];
 
-    public static function random(): string
+    public function random(): string
     {
-        return static::$agents[array_rand(static::$agents)];
+        return $this->agents[array_rand($this->agents)] ?? 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36 Edg/136.0.0.0';
     }
 
-    protected static array $socialBotKeywords = [
+    protected array $socialBotKeywords = [
         'twitterbot',
         'facebookexternalhit',
         'facebot',
@@ -68,27 +71,51 @@ class UserAgent
         'telegrambot',
         'linkedinbot',
         'whatsapp',
-        'applebot',
-        'redditbot',
         'pinterest',
         'skypeuripreview',
-        'google-structured-data-testing-tool',
     ];
 
-    public static function isSocialMediaBot(?string $userAgent): bool
+    protected array $searchEngineBots = [
+        'googlebot',
+        'bingbot',
+        'duckduckbot',
+        'baiduspider',
+        'yandexbot',
+        'ahrefsbot',
+        'semrushbot',
+        'mj12bot',
+        'dotbot',
+        'sogou',
+    ];
+
+    public function isSocialMediaBot(?string $userAgent, ?Request $request = null): bool
     {
         if (!$userAgent) {
             return false;
         }
 
-        $ua = strtolower($userAgent);
+        $ua       = strtolower($userAgent);
+        $accept   = strtolower($request?->header('accept', '') ?? '');
+        $cacheKey = 'ua:bot:' . md5($ua . '|' . $accept);
 
-        foreach (self::$socialBotKeywords as $keyword) {
-            if (str_contains($ua, $keyword)) {
-                return true;
+        return Cache::remember($cacheKey, now()->addHours(6), function () use ($ua, $accept) {
+            foreach ($this->socialBotKeywords as $keyword) {
+                if (str_contains($ua, $keyword)) {
+                    return true;
+                }
             }
-        }
 
-        return false;
+            foreach ($this->searchEngineBots as $bot) {
+                if (str_contains($ua, $bot)) {
+                    return false;
+                }
+            }
+
+            return str_contains($accept, 'text/html')
+                && !str_contains($accept, 'application/json')
+                && !str_contains($ua, 'chrome')
+                && !str_contains($ua, 'safari')
+                && !str_contains($ua, 'firefox');
+        });
     }
 }

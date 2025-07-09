@@ -59,8 +59,8 @@ class RefreshTwitterAccountJob implements ShouldQueue
             $password = decrypt($account->password);
 
             $response = Http::timeout(30)->post($endpoint, [
-                'identifier' => $this->username,
-                'password'   => $password,
+                'username' => $this->username,
+                'password' => $password,
             ]);
 
             if (!$response->ok()) {

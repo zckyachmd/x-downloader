@@ -8,6 +8,7 @@ use App\Models\VideoDownload;
 use App\Traits\EncodesVideoKey;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
+use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class TweetVideoController extends Controller
@@ -31,7 +32,7 @@ class TweetVideoController extends Controller
             ], 422);
         }
 
-        $data = $this->tweetVideoService->get($tweetId);
+        $data = $this->tweetVideoService->get(tweetId: $tweetId, allowApiFallback: true);
 
         if (!$data) {
             return response()->json([
@@ -45,7 +46,7 @@ class TweetVideoController extends Controller
         ]);
     }
 
-    public function thumbnail(string $key)
+    public function thumbnail(string $key): Response
     {
         $resolved = $this->decodeVideoKey($key);
 
@@ -62,22 +63,20 @@ class TweetVideoController extends Controller
 
         $result = $this->tweetVideoService->imageThumbnail($resolved['tweet_id'], $resolved['index']);
 
-        if (!$result || !isset($result['stream'])) {
+        if (!$result || empty($result['stream'])) {
             abort(404);
         }
 
-        $stream      = $result['stream'];
-        $contentType = $result['content_type'] ?? 'image/jpeg';
+        $body = $result['stream'];
+        $type = str_starts_with($result['content_type'], 'image/')
+            ? $result['content_type']
+            : 'image/jpeg';
 
-        return new StreamedResponse(function () use ($stream) {
-            while (!$stream->eof()) {
-                echo $stream->read(8192);
-                flush();
-            }
-        }, 200, [
-            'Content-Type'  => $contentType,
-            'Cache-Control' => 'public, max-age=86400',
-            'Accept-Ranges' => 'bytes',
+        return response($body, 200, [
+            'Content-Type'   => $type,
+            'Content-Length' => strlen($body),
+            'Cache-Control'  => 'public, max-age=86400',
+            'Accept-Ranges'  => 'bytes',
         ]);
     }
 

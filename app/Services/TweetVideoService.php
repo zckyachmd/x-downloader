@@ -26,8 +26,12 @@ class TweetVideoService implements TweetVideoServiceContract
         $this->userAgent = new UserAgent();
     }
 
-    public function get(int $tweetId, bool $skipSignedRoute = false, bool $proxyPreviewImage = true): ?array
-    {
+    public function get(
+        int $tweetId,
+        bool $skipSignedRoute = false,
+        bool $proxyPreviewImage = true,
+        bool $allowApiFallback = false,
+    ): ?array {
         $cacheKey = "tweet:$tweetId";
         $mapped   = Cache::get($cacheKey);
 
@@ -36,8 +40,16 @@ class TweetVideoService implements TweetVideoServiceContract
                 ->where('status', 'video')
                 ->first();
 
-            $data = $model
-                ? $model->only([
+            if (!$model && $allowApiFallback) {
+                $lockKey = "tweet:fetching:$tweetId";
+                if (Cache::add($lockKey, true, 10)) {
+                    $data = $this->fetchFromAPI($tweetId);
+                    Cache::forget($lockKey);
+                } else {
+                    return null;
+                }
+            } else {
+                $data = $model?->only([
                     'tweet_id',
                     'user_id',
                     'username',
@@ -46,8 +58,8 @@ class TweetVideoService implements TweetVideoServiceContract
                     'urls',
                     'media',
                     'status',
-                ])
-                : $this->fetchFromAPI($tweetId);
+                ]);
+            }
 
             $mapped = $data ? $this->map($data) : null;
 
@@ -62,15 +74,22 @@ class TweetVideoService implements TweetVideoServiceContract
             ->map(function ($variant) use ($skipSignedRoute, $proxyPreviewImage) {
                 $videoKey = $variant['key'] ?? null;
 
-                if ($proxyPreviewImage && $videoKey) {
-                    $variant['preview'] = route('tweet.thumbnail', ['key' => $videoKey]);
+                if ($videoKey) {
+                    $variant['preview'] = $proxyPreviewImage
+                        ? route('tweet.thumbnail', ['key' => $videoKey])
+                        : ($variant['preview'] ?? null);
                 }
 
                 if (!$skipSignedRoute && !empty($variant['video']) && $videoKey) {
                     $durationSec  = ($variant['duration_ms'] ?? 0) / 1000;
                     $validMinutes = max(10, min(180, ceil($durationSec * 5 / 60)));
 
-                    $variant['video']    = URL::temporarySignedRoute('tweet.preview', now()->addMinutes($validMinutes), ['videoKey' => $videoKey]);
+                    $variant['video'] = URL::temporarySignedRoute(
+                        'tweet.preview',
+                        now()->addMinutes($validMinutes),
+                        ['videoKey' => $videoKey],
+                    );
+
                     $variant['variants'] = collect($variant['variants'] ?? [])
                         ->map(fn ($v) => Arr::except($v, ['url']))
                         ->values();
@@ -88,35 +107,80 @@ class TweetVideoService implements TweetVideoServiceContract
 
     public function imageThumbnail(int $tweetId, int $index = 0): ?array
     {
-        $tweet = $this->get($tweetId, skipSignedRoute: false, proxyPreviewImage: false);
-        $url   = $tweet['media'][$index]['preview'] ?? null;
-        if (!$url) {
-            return null;
+        $cacheKey = "tweet:thumb:{$tweetId}:{$index}";
+        if (($cached = Cache::get($cacheKey)) !== null) {
+            return $cached;
         }
 
         try {
+            $tweet = $this->get(
+                tweetId: $tweetId,
+                skipSignedRoute: false,
+                proxyPreviewImage: false,
+                allowApiFallback: true,
+            );
+
+            $media = $tweet['media'][$index] ?? null;
+            $url   = $media['preview'] ?? null;
+
+            if (
+                empty($url) ||
+                !filter_var($url, FILTER_VALIDATE_URL) ||
+                !str_starts_with($url, 'https://pbs.twimg.com/')
+            ) {
+                Log::info('[TweetVideoService] No usable preview URL', [
+                    'tweet_id' => $tweetId,
+                    'index'    => $index,
+                    'preview'  => $url,
+                ]);
+
+                Cache::put($cacheKey, null, now()->addMinutes(3));
+
+                return null;
+            }
+
             $client = new Client([
-                'headers' => ['User-Agent' => $this->userAgent->random()],
-                'stream'  => true,
-                'timeout' => 0,
+                'headers'         => ['User-Agent' => $this->userAgent->random()],
+                'timeout'         => 5,
+                'connect_timeout' => 2,
             ]);
 
-            $response = $client->get($url, ['stream' => true]);
+            for ($attempt = 1; $attempt <= 3; $attempt++) {
+                $response = $client->get($url, ['http_errors' => false]);
+                $body     = $response->getBody()->getContents();
+                $type     = $response->getHeaderLine('Content-Type') ?: 'image/jpeg';
 
-            return [
-                'stream'       => $response->getBody(),
-                'content_type' => $response->getHeaderLine('Content-Type') ?: 'image/jpeg',
-            ];
+                if (!empty($body) && str_starts_with($type, 'image/')) {
+                    $result = [
+                        'stream'       => $body,
+                        'content_type' => $type,
+                    ];
+                    Cache::put($cacheKey, $result, now()->addMinutes(60));
+
+                    return $result;
+                }
+
+                Log::warning('[TweetVideoService] Empty or invalid image', [
+                    'tweet_id' => $tweetId,
+                    'index'    => $index,
+                    'url'      => $url,
+                    'attempt'  => $attempt,
+                    'status'   => $response->getStatusCode(),
+                    'type'     => $type,
+                    'body_len' => strlen($body),
+                ]);
+
+                usleep(300_000 * $attempt);
+            }
         } catch (\Throwable $e) {
-            Log::error('[TweetVideoService] Failed to stream thumbnail', [
+            Log::error('[TweetVideoService] Thumbnail failed', [
                 'tweet_id' => $tweetId,
                 'index'    => $index,
-                'url'      => $url,
                 'error'    => $e->getMessage(),
             ]);
-
-            return null;
         }
+
+        return null;
     }
 
     public function streamVideo(int $tweetId, int $index = 0, bool $isPreview = false, ?int $bitrate = null, ?string $rangeHeader = null): ?array
