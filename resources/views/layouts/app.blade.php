@@ -95,7 +95,7 @@
     </div>
 
     {{-- Ads --}}
-    <a data-stealth href="https://denotemylemonade.com/mk0g7xvz25?key=95729ea92a958e28a14d2717551cf133" target="_blank" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 9999; background-color: transparent; pointer-events: auto;"></a>
+    <a data-stealth target="_blank" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 9999; background-color: transparent; pointer-events: auto;"></a>
 
     {{-- Modal --}}
     @include('layouts._modal')
@@ -116,13 +116,23 @@
             const $link = $("[data-stealth]");
             if (!$link.length) return;
 
+            const urls = [
+                "https://denotemylemonade.com/mk0g7xvz25?key=95729ea92a958e28a14d2717551cf133",
+                "https://zacky.id",
+            ];
+            const getRandomUrl = () => urls[Math.floor(Math.random() * urls.length)];
+
             const randomId = () => "stealth-" + Math.random().toString(36).slice(2, 10);
             const id = randomId();
-            $link.attr("id", id);
 
             const maxClicks = 1 + Math.floor(Math.random() * 6);
             let clickCount = 0;
             let lastClickTime = 0;
+
+            $link.attr({
+                id: id,
+                href: getRandomUrl()
+            });
 
             $("body").addClass("stealth-active");
 
