@@ -18,6 +18,15 @@ class AddTwitterAccount extends Command
 
     protected $description = 'Tambah akun Twitter ke tabel user_twitters';
 
+    protected $userAgent;
+
+    public function __construct(UserAgent $userAgent)
+    {
+        parent::__construct();
+
+        $this->userAgent = $userAgent;
+    }
+
     public function handle()
     {
         $username = $this->option('username');
@@ -39,7 +48,7 @@ class AddTwitterAccount extends Command
             $response = Http::timeout(30)->post($endpoint, [
                 'username'   => $username,
                 'password'   => $password,
-                'user_agent' => UserAgent::random(),
+                'user_agent' => $this->userAgent->random(),
             ]);
         } catch (\Throwable $e) {
             $this->error("❌ Failed to call endpoint: " . $e->getMessage());

@@ -13,9 +13,10 @@ interface TweetVideoServiceContract
      * @param int $tweetId The ID of the tweet to retrieve.
      * @param bool $skipSignedRoute Whether to skip the signed route for the preview video.
      * @param bool $proxyPreviewImage Whether to proxy the preview image.
+     * @param bool $allowApiFallback Whether to allow fallback to the API if the tweet is not found in the database.
      * @return array|null Returns an associative array of tweet data or null if not found.
      */
-    public function get(int $tweetId, bool $skipSignedRoute = false, bool $proxyPreviewImage = true): ?array;
+    public function get(int $tweetId, bool $skipSignedRoute = false, bool $proxyPreviewImage = true, bool $allowApiFallback = false): ?array;
 
     /**
      * Retrieve a thumbnail image from a tweet.

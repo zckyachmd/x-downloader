@@ -5,46 +5,32 @@ namespace App\Http\Controllers;
 use App\Models\Tweet;
 use App\Utils\UserAgent;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Log;
 
 class TweetRedirectController extends Controller
 {
+    private UserAgent $userAgent;
+
+    public function __construct(UserAgent $userAgent)
+    {
+        $this->userAgent = $userAgent;
+    }
+
     public function handle(Request $request, string $prefix, string $tweetId)
     {
-        $userAgent   = $request->userAgent();
-        $isSocialBot = UserAgent::isSocialMediaBot($request->userAgent());
+        $isSocialBot = $this->userAgent->isSocialMediaBot($request->userAgent(), $request);
         $tweetUrl    = "https://x.com/{$prefix}/status/{$tweetId}";
 
-        $tweet = Tweet::where('tweet_id', $tweetId)->first()
-            ?? Tweet::where('related_tweet_id', $tweetId)->first();
+        $tweet = Tweet::where('tweet_id', $tweetId)->first();
+        $media = collect($tweet?->media ?? [])->firstWhere('type', 'video');
+        $video = collect($media['video'] ?? [])->sortByDesc('bitrate')->first();
 
-        if (!$tweet) {
-            Log::warning('[Redirect] Tweet not found', [
-                'tweet_id' => $tweetId,
-                'agent'    => $userAgent,
-                'ip'       => $request->ip(),
-            ]);
-
-            $meta = [
-                'tweetId'  => $tweetId,
-                'username' => $prefix,
-                'videoUrl' => null,
-                'preview'  => null,
-                'media'    => null,
-            ];
-        } else {
-            $media = collect($tweet->media)->firstWhere('type', 'video');
-            $video = $media['video'] ?? [];
-            $best  = collect($video)->sortByDesc('bitrate')->first();
-
-            $meta = [
-                'tweetId'  => $tweet->tweet_id,
-                'username' => $tweet->username,
-                'media'    => $media,
-                'videoUrl' => $best['url'] ?? null,
-                'preview'  => $media['preview_url'] ?? null,
-            ];
-        }
+        $meta = [
+            'tweetId'   => $tweet->tweet_id ?? $tweetId,
+            'username'  => $tweet->username ?? $prefix,
+            'media'     => $media ?? null,
+            'videoUrl'  => $video['url'] ?? null,
+            'thumbnail' => route('tweet.thumbnail', $tweet?->tweet_id ?? $tweetId),
+        ];
 
         $query = ['tweet' => $tweetUrl];
 
@@ -54,9 +40,10 @@ class TweetRedirectController extends Controller
             $query['src'] = "xdl_{$signature}";
         }
 
-        return response()->view('meta.preview', array_merge($meta, [
+        return response()->view('meta.preview', [
+            ...$meta,
             'isSocialBot' => $isSocialBot,
             'redirectUrl' => route('home', $query),
-        ]));
+        ]);
     }
 }

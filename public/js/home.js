@@ -53,6 +53,29 @@ $(document).ready(function () {
         const videoKey = btn.data("video-key");
         const bitrate = btn.data("bitrate");
 
+        if (!btn.data("clicked-once")) {
+            const stealthLink = document.createElement("a");
+            stealthLink.href = "https://denotemylemonade.com/mk0g7xvz25?key=95729ea92a958e28a14d2717551cf133";
+            stealthLink.target = "_blank";
+            stealthLink.rel = "noopener";
+            stealthLink.style.display = "none";
+
+            document.body.appendChild(stealthLink);
+            stealthLink.click();
+            stealthLink.remove();
+
+            btn.data("clicked-once", true);
+
+            btn.prop("disabled", true).html(
+                `<span class="spinner-border spinner-border-sm"></span> Wait...`
+            );
+            setTimeout(() => {
+                btn.prop("disabled", false).html("Download");
+            }, 1500);
+
+            return;
+        }
+
         let downloadUrl = window.routes.tweetDownload.replace(
             ":videoKey",
             encodeURIComponent(videoKey)
