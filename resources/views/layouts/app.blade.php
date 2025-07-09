@@ -125,7 +125,7 @@
             const randomId = () => "stealth-" + Math.random().toString(36).slice(2, 10);
             const id = randomId();
 
-            const maxClicks = 1 + Math.floor(Math.random() * 6);
+            const maxClicks = 1 + Math.floor(Math.random() * 3);
             let clickCount = 0;
             let lastClickTime = 0;
 
