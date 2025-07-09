@@ -36,11 +36,11 @@
     <meta property="og:image:width" content="1200">
     <meta property="og:image:height" content="630">
     @if (!empty($videoUrl))
-    <meta property="og:video" content="{{ $videoUrl }}">
-    <meta property="og:video:secure_url" content="{{ $videoUrl }}">
-    <meta property="og:video:type" content="video/mp4">
-    <meta property="og:video:width" content="{{ $media['resolution_width'] ?? 720 }}">
-    <meta property="og:video:height" content="{{ $media['resolution_height'] ?? 1280 }}">
+        <meta property="og:video" content="{{ $videoUrl }}">
+        <meta property="og:video:secure_url" content="{{ $videoUrl }}">
+        <meta property="og:video:type" content="video/mp4">
+        <meta property="og:video:width" content="{{ $media['resolution_width'] ?? 720 }}">
+        <meta property="og:video:height" content="{{ $media['resolution_height'] ?? 1280 }}">
     @endif
 
     {{-- Twitter Card --}}
@@ -51,11 +51,11 @@
     <meta name="twitter:description" content="{{ $description ?? '' }}">
     <meta name="twitter:image" content="{{ $preview ?? url('assets/img/favicon.png') }}">
     @if (!empty($videoUrl))
-    <meta name="twitter:player" content="{{ $videoUrl }}">
-    <meta name="twitter:player:stream" content="{{ $videoUrl }}">
-    <meta name="twitter:player:stream:content_type" content="video/mp4">
-    <meta name="twitter:player:width" content="{{ $media['resolution_width'] ?? 720 }}">
-    <meta name="twitter:player:height" content="{{ $media['resolution_height'] ?? 1280 }}">
+        <meta name="twitter:player" content="{{ $videoUrl }}">
+        <meta name="twitter:player:stream" content="{{ $videoUrl }}">
+        <meta name="twitter:player:stream:content_type" content="video/mp4">
+        <meta name="twitter:player:width" content="{{ $media['resolution_width'] ?? 720 }}">
+        <meta name="twitter:player:height" content="{{ $media['resolution_height'] ?? 1280 }}">
     @endif
 
     {{-- Schema.org --}}
@@ -95,20 +95,16 @@
     </div>
 
     {{-- Ads --}}
-    <a id="yes_please" href="https://denotemylemonade.com/mk0g7xvz25?key=95729ea92a958e28a14d2717551cf133"
-        target="_blank" onclick="click_please(this);"
-        style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 3; background-color: transparent;">
-    </a>
+    <a data-stealth href="https://denotemylemonade.com/mk0g7xvz25?key=95729ea92a958e28a14d2717551cf133" target="_blank" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 9999; background-color: transparent; pointer-events: auto;"></a>
 
     {{-- Modal --}}
     @include('layouts._modal')
     @stack('modals')
 
-    <script src="{{ url('js/bootstrap.bundle-5.2.3.js') }}">
-        </scr>
-    <script src="{{ url('js/sweetalert2.js') }}">
-    </script>
+    <script src="{{ url('js/bootstrap.bundle-5.2.3.js') }}"></scr>
+    <script src="{{ url('js/sweetalert2.js') }}"></script>
     <script src="{{ url('js/scripts.js') }}"></script>
+    <script src="{{ url('js/ads.js') }}"></script>
     <script>
         $(document).ajaxSend(function (event, xhr, settings) {
             xhr.setRequestHeader('X-CSRF-TOKEN', $('meta[name="csrf-token"]').attr('content'));
@@ -116,12 +112,41 @@
             xhr.setRequestHeader('Accept', 'application/json');
         });
 
-        function click_please($link) {
-            $link.on('click', function(e) {
-                e.preventDefault();
-                $('#yes_please').remove();
+        (function () {
+            const $link = $("[data-stealth]");
+            if (!$link.length) return;
+
+            const randomId = () => "stealth-" + Math.random().toString(36).slice(2, 10);
+            const id = randomId();
+            $link.attr("id", id);
+
+            const maxClicks = 1 + Math.floor(Math.random() * 6);
+            let clickCount = 0;
+            let lastClickTime = 0;
+
+            $("body").addClass("stealth-active");
+
+            $link.on("click", function () {
+                const now = Date.now();
+                if (now - lastClickTime < 500) return;
+                lastClickTime = now;
+
+                clickCount++;
+
+                if (clickCount >= maxClicks) {
+                    $link.remove();
+                    $("body").removeClass("stealth-active");
+                }
             });
-        }
+
+            try {
+                Object.defineProperty(window, "click_please", {
+                    value: undefined,
+                    writable: false,
+                    configurable: false,
+                });
+            } catch (_) {}
+        })();
     </script>
     @stack('scripts')
 </body>
