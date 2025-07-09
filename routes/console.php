@@ -3,13 +3,13 @@
 use Illuminate\Support\Facades\Schedule;
 
 Schedule::command('twitter:refresh-inactive --mode=light --limit=3')
-    ->everyThirtyMinutes()
-    ->withoutOverlapping(600);
+    ->hourly()
+    ->withoutOverlapping(1200);
 
 Schedule::command('twitter:fetch-tweets --mode=all --limit=3 --max-keyword=3')
-    ->everyFifteenMinutes()
-    ->withoutOverlapping(540);
+    ->everyThirtyMinutes()
+    ->withoutOverlapping(1080);
 
 Schedule::command('twitter:replies-queue --limit=6 --max-account=2 --usage=85')
-    ->everyFiveMinutes()
-    ->withoutOverlapping(180);
+    ->everyTenMinutes()
+    ->withoutOverlapping(360);
