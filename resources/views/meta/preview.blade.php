@@ -49,7 +49,11 @@ $robots = $isSocialBot ? 'index, follow' : 'noindex, nofollow';
                 You’ll be redirected in <span id="countdown" class="fw-bold text-dark">5</span> seconds.
             </p>
 
-            <div id="manualRedirectBtn" class="d-none" data-url="{{ $redirectUrl }}"></div>
+            <div class="d-none" id="manualRedirectBtnWrapper">
+                <a href="#" id="manualRedirectBtn" class="btn btn-outline-primary btn-sm px-4">
+                    Click here if it takes too long
+                </a>
+            </div>
 
             <noscript>
                 <div class="mt-4">
@@ -69,33 +73,34 @@ $robots = $isSocialBot ? 'index, follow' : 'noindex, nofollow';
 @unless($isSocialBot)
 <script>
     $(function () {
+        const redirectUrl = @json($redirectUrl);
+
         const $countdown = $('#countdown');
+        const $manualBtnWrapper = $('#manualRedirectBtnWrapper');
         const $manualBtn = $('#manualRedirectBtn');
-        const redirectUrl = $manualBtn.data('url');
 
-        const startTime = Date.now();
-        const totalSeconds = Math.floor(Math.random() * (5 - 3 + 1)) + 3;
+        const totalMs = 5000;
+        const start = Date.now();
 
-        const updateCountdown = () => {
-            const elapsed = Math.floor((Date.now() - startTime) / 1000);
-            const remaining = Math.max(totalSeconds - elapsed, 0);
+        const update = () => {
+            const elapsed = Date.now() - start;
+            const remainingMs = Math.max(totalMs - elapsed, 0);
+            const remainingSec = Math.ceil(remainingMs / 1000);
 
-            $countdown.text(remaining);
+            $countdown.text(remainingSec);
 
-            if (remaining <= 0) {
-                $manualBtn
-                    .removeClass('d-none')
-                    .html(`<a href="${redirectUrl}" class="btn btn-outline-primary btn-sm px-4">
-                        Click here if it takes too long
-                    </a>`);
+            if (remainingMs <= 0) {
+                $manualBtn.attr('href', redirectUrl);
+                $manualBtnWrapper.removeClass('d-none');
                 window.location.href = redirectUrl;
             } else {
-                const jitter = 200 + Math.floor(Math.random() * 300);
-                setTimeout(updateCountdown, jitter);
+                const jitter = 200 + Math.floor(Math.random() * 150);
+                setTimeout(update, jitter);
             }
         };
 
-        setTimeout(updateCountdown, 200 + Math.floor(Math.random() * 300));
+        const initialJitter = 200 + Math.floor(Math.random() * 150);
+        setTimeout(update, initialJitter);
     });
 </script>
 @endunless

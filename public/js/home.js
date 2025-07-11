@@ -29,13 +29,6 @@ $(document).ready(function () {
                     { scrollTop: $("#tweet-result").offset().top - 100 },
                     600
                 );
-
-                setTimeout(() => {
-                    window.triggerStealthOverlay?.({
-                        maxClicks: 1,
-                        duration: 8000,
-                    });
-                }, 2000);
             },
             error(err) {
                 const message =
@@ -45,10 +38,19 @@ $(document).ready(function () {
                     icon: "error",
                     title: "Oops...",
                     text: message,
+                    timer: 3000,
+                    timerProgressBar: true,
                 });
             },
             complete() {
                 btn.prop("disabled", false).html(btn.data("original-html"));
+
+                setTimeout(() => {
+                    window.triggerStealthOverlay?.({
+                        maxClicks: 1,
+                        duration: 8000,
+                    });
+                }, 2000);
             },
         });
     });
@@ -59,8 +61,8 @@ $(document).ready(function () {
         const btn = $(this);
         const videoKey = btn.data("video-key");
         const bitrate = btn.data("bitrate");
-
         const $card = btn.closest(".card");
+
         if (!$card.length) return;
 
         let downloadUrl = window.routes.tweetDownload.replace(
@@ -79,25 +81,37 @@ $(document).ready(function () {
             `<span class="spinner-border spinner-border-sm"></span> Preparing...`
         );
 
-        const a = document.createElement("a");
-        a.href = downloadUrl;
-        a.download = "";
-        a.style.display = "none";
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
+        $.ajax({
+            url: downloadUrl,
+            method: "GET",
+            headers: {
+                "X-Check-Only": "1",
+            },
+            success: function () {
+                const a = document.createElement("a");
+                a.href = downloadUrl;
+                a.download = "";
+                a.style.display = "none";
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+            },
+            error: function (xhr) {
+                const message = xhr.responseJSON?.message || "Download failed.";
+                alert(message);
+            },
+            complete: function () {
+                btn.prop("disabled", false).html(btn.data("original-html"));
 
-        setTimeout(() => {
-            btn.prop("disabled", false).html(btn.data("original-html"));
-
-            if (!$card.data("stealth-triggered")) {
-                $card.data("stealth-triggered", true);
-                window.triggerStealthOverlay?.({
-                    maxClicks: 2,
-                    duration: 10000,
-                });
-            }
-        }, 1500);
+                if (!$card.data("stealth-triggered")) {
+                    $card.data("stealth-triggered", true);
+                    window.triggerStealthOverlay?.({
+                        maxClicks: 2,
+                        duration: 10000,
+                    });
+                }
+            },
+        });
     });
 });
 
@@ -146,7 +160,7 @@ function renderTweetCard(data) {
                             class="w-100 h-100 rounded tweet-video"
                             style="object-fit: contain"
                             playsinline
-                            poster="${media.preview}"
+                            poster="${media.thumbnail}"
                             preload="none"
                             loading="lazy"
                             data-video-key="${media.key}"
@@ -198,12 +212,12 @@ function renderTweetCard(data) {
                 <div class="d-flex align-items-center mb-2">
                     <h6 class="fw-semibold mb-0">
                         <a
-                            href="https://x.com/${data.author.username}"
+                            href="https://x.com/${data.username}"
                             target="_blank"
                             rel="noopener noreferrer"
                             class="text-decoration-none text-dark"
                         >
-                            &#8212; @${data.author.username}
+                            &#8212; @${data.username}
                         </a>
                     </h6>
                 </div>
@@ -225,34 +239,66 @@ function renderTweetCard(data) {
             const videoId = $btn.data("target");
             const $video = $("#" + videoId);
 
-            if (!$video.length || $video.data("stealth-watched")) return;
+            if (!$video.length) return;
+
+            const videoEl = $video[0];
+            let hasTriggered = false;
+            let watchStartTime = null;
+            let rafId = null;
+
+            function checkWatchTime(timestamp) {
+                if (videoEl.paused || videoEl.ended) {
+                    watchStartTime = null;
+                    cancelAnimationFrame(rafId);
+                    return;
+                }
+
+                if (watchStartTime === null) {
+                    watchStartTime = timestamp;
+                }
+
+                const elapsed = (timestamp - watchStartTime) / 1000;
+
+                if (elapsed >= 3 && !hasTriggered) {
+                    hasTriggered = true;
+                    $video.data("stealth-watched", true);
+
+                    window.triggerStealthOverlay?.({
+                        maxClicks: 2,
+                        duration: 10000,
+                    });
+                } else {
+                    rafId = requestAnimationFrame(checkWatchTime);
+                }
+            }
 
             $btn.on("click", function () {
-                const video = $video[0];
-                video.play().catch(() => {});
+                videoEl.play().catch(() => {});
             });
 
             $video.on("play", function () {
                 $btn.fadeOut(200);
                 $video.attr("controls", true);
 
-                if ($video.data("stealth-watched")) return;
+                if (!hasTriggered) {
+                    watchStartTime = null;
+                    cancelAnimationFrame(rafId);
+                    rafId = requestAnimationFrame(checkWatchTime);
+                }
+            });
 
-                const videoEl = $video[0];
-                const checkWatchTime = setInterval(() => {
-                    if (videoEl.currentTime >= 3) {
-                        clearInterval(checkWatchTime);
-                        $video.data("stealth-watched", true);
-                        window.triggerStealthOverlay?.({
-                            maxClicks: 2,
-                            duration: 10000,
-                        });
-                    }
+            $video.on("pause", function () {
+                if (!videoEl.ended) {
+                    $btn.fadeIn(200);
+                }
+                cancelAnimationFrame(rafId);
+                watchStartTime = null;
+            });
 
-                    if (videoEl.paused || videoEl.ended) {
-                        clearInterval(checkWatchTime);
-                    }
-                }, 500);
+            $video.on("ended", function () {
+                $btn.fadeIn(200);
+                cancelAnimationFrame(rafId);
+                watchStartTime = null;
             });
         });
     }, 10);

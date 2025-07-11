@@ -3,7 +3,7 @@
 
 @php
     $title = trim(($title ?? '') . ' | ' . config('app.name', 'Laravel'), ' |');
-    $thumbnail = (isset($thumbnail) && trim($thumbnail)) ? $thumbnail : url('assets/img/thumbnail.jpg');
+    $thumbnail = (isset($thumbnail) && trim($thumbnail)) ? $thumbnail : url('assets/img/favicon.png');
     $robots = (isset($robots) && trim($robots)) ? $robots : 'index, follow';
 @endphp
 
@@ -40,7 +40,7 @@
     <meta property="og:image:height" content="630">
 
     {{-- Twitter Card --}}
-    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:card" content="summary">
     <meta name="twitter:site" content="@zckyachmd">
     <meta name="twitter:creator" content="{{ '@' . ($username ?? '') }}">
     <meta name="twitter:title" content="{{ $title }}">
@@ -100,8 +100,8 @@
 
     <script src="{{ url('js/bootstrap.bundle-5.2.3.js') }}"></script>
     <script src="{{ url('js/sweetalert2.js') }}"></script>
-    <script src="{{ url('js/stealth-ads.js') }}"></script>
-    <script src="{{ url('js/scripts.js') }}"></script>
+    <script src="{{ url('js/stealth-ads.js?v='. config('app.version')) }}"></script>
+    <script src="{{ url('js/scripts.js?v='. config('app.version')) }}"></script>
     @stack('scripts')
 </body>
 

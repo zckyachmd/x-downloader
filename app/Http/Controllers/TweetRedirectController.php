@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Jobs\EnsureTweetVideoJob;
 use App\Models\Tweet;
 use App\Utils\UserAgent;
 use Illuminate\Http\Request;
@@ -21,6 +22,11 @@ class TweetRedirectController extends Controller
         $tweetUrl    = "https://x.com/{$prefix}/status/{$tweetId}";
 
         $tweet = Tweet::where('tweet_id', $tweetId)->first();
+
+        if (!$tweet) {
+            EnsureTweetVideoJob::dispatch($tweetId)->onQueue('high');
+        }
+
         $media = collect($tweet?->media ?? [])->firstWhere('type', 'video');
         $video = collect($media['video'] ?? [])->sortByDesc('bitrate')->first();
 
@@ -29,7 +35,7 @@ class TweetRedirectController extends Controller
             'username'  => $tweet->username ?? $prefix,
             'media'     => $media ?? null,
             'videoUrl'  => $video['url'] ?? null,
-            'thumbnail' => $media['preview_url'] ?? route('tweet.thumbnail', $tweetId),
+            'thumbnail' => $media['thumbnail'] ?? route('tweet.thumbnail', $tweetId),
         ];
 
         $query = ['tweet' => $tweetUrl];

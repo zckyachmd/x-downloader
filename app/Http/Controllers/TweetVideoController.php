@@ -6,9 +6,10 @@ use App\Contracts\TweetVideoServiceContract;
 use App\Http\Requests\TweetSearchRequest;
 use App\Models\VideoDownload;
 use App\Traits\EncodesVideoKey;
+use App\Utils\UserAgent;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
-use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class TweetVideoController extends Controller
@@ -16,10 +17,12 @@ class TweetVideoController extends Controller
     use EncodesVideoKey;
 
     protected $tweetVideoService;
+    protected $userAgent;
 
-    public function __construct(TweetVideoServiceContract $tweetVideoService)
+    public function __construct(TweetVideoServiceContract $tweetVideoService, UserAgent $userAgent)
     {
         $this->tweetVideoService = $tweetVideoService;
+        $this->userAgent         = $userAgent;
     }
 
     public function search(TweetSearchRequest $request)
@@ -46,7 +49,7 @@ class TweetVideoController extends Controller
         ]);
     }
 
-    public function thumbnail(string $key): Response
+    public function thumbnail(string $key): StreamedResponse
     {
         $resolved = $this->decodeVideoKey($key);
 
@@ -58,58 +61,108 @@ class TweetVideoController extends Controller
         }
 
         if (!$resolved) {
-            abort(404);
+            return $this->fallbackThumbnailResponse();
         }
 
-        $result = $this->tweetVideoService->imageThumbnail($resolved['tweet_id'], $resolved['index']);
+        $tweetId = $resolved['tweet_id'];
+        $index   = $resolved['index'];
 
-        if (!$result || empty($result['stream'])) {
-            abort(404);
+        $result = $this->tweetVideoService->imageThumbnail($tweetId, $index);
+        $url    = $result['stream'] ?? null;
+
+        if (!$url || !filter_var($url, FILTER_VALIDATE_URL)) {
+            return $this->fallbackThumbnailResponse();
         }
 
-        $body = $result['stream'];
-        $type = str_starts_with($result['content_type'], 'image/')
-            ? $result['content_type']
-            : 'image/jpeg';
+        try {
+            $response = Http::withHeaders([
+                'User-Agent' => $this->userAgent->random(),
+            ])->timeout(10)->withOptions(['stream' => true])->get($url);
 
-        return response($body, 200, [
-            'Content-Type'   => $type,
-            'Content-Length' => strlen($body),
-            'Cache-Control'  => 'public, max-age=86400',
-            'Accept-Ranges'  => 'bytes',
+            if (!$response->ok()) {
+                throw new \Exception('Remote thumbnail not ok');
+            }
+
+            $psr    = $response->toPsrResponse();
+            $body   = $psr->getBody();
+            $length = $psr->getHeaderLine('Content-Length');
+            $type   = $psr->getHeaderLine('Content-Type') ?: 'image/jpeg';
+
+            return response()->stream(function () use ($body) {
+                while (ob_get_level() > 0) {
+                    ob_end_flush();
+                }
+                if (function_exists('ob_implicit_flush')) {
+                    ob_implicit_flush(true);
+                }
+
+                while (!$body->eof()) {
+                    echo $body->read(65536);
+                    flush();
+                }
+            }, 200, array_filter([
+                'Content-Type'           => $type,
+                'Content-Length'         => $length ?: null,
+                'Cache-Control'          => 'public, max-age=86400',
+                'Accept-Ranges'          => 'bytes',
+                'Connection'             => 'keep-alive',
+                'X-Content-Type-Options' => 'nosniff',
+            ]));
+        } catch (\Throwable $e) {
+            return $this->fallbackThumbnailResponse();
+        }
+    }
+
+    protected function fallbackThumbnailResponse(): StreamedResponse
+    {
+        $path = public_path('assets/img/favicon.png');
+
+        abort_unless(file_exists($path), 404);
+        $length = filesize($path);
+
+        return response()->stream(function () use ($path) {
+            while (ob_get_level() > 0) {
+                ob_end_flush();
+            }
+            if (function_exists('ob_implicit_flush')) {
+                ob_implicit_flush(true);
+            }
+
+            $stream = fopen($path, 'rb');
+            while (!feof($stream)) {
+                echo fread($stream, 65536);
+                flush();
+            }
+            fclose($stream);
+        }, 200, [
+            'Content-Type'           => 'image/jpeg',
+            'Content-Length'         => $length,
+            'Cache-Control'          => 'public, max-age=86400',
+            'Accept-Ranges'          => 'bytes',
+            'Connection'             => 'keep-alive',
+            'X-Content-Type-Options' => 'nosniff',
         ]);
     }
 
-    public function preview(Request $request, string $videoKey)
+    public function preview(Request $request, string $videoKey): StreamedResponse
     {
         $resolved = $this->decodeVideoKey($videoKey);
         if (!$resolved) {
             abort(404);
         }
 
-        $data = $this->tweetVideoService->streamVideo($resolved['tweet_id'], $resolved['index'], true, null, $request->header('Range'));
+        $data = $this->tweetVideoService->streamVideo(
+            $resolved['tweet_id'],
+            $resolved['index'],
+            true,
+            null,
+            $request->header('Range'),
+        );
         if (!$data) {
             abort(404);
         }
 
-        $length = $data['end'] - $data['start'] + 1;
-
-        return new StreamedResponse(function () use ($data) {
-            while (!$data['stream']->eof()) {
-                echo $data['stream']->read(65536);
-                flush();
-            }
-        }, $data['status'], [
-            'Content-Type'           => $data['content_type'],
-            'Content-Disposition'    => 'inline',
-            'Accept-Ranges'          => 'bytes',
-            'Content-Length'         => $length,
-            'Content-Range'          => "bytes {$data['start']}-{$data['end']}/{$data['total_length']}",
-            'Cache-Control'          => 'no-store, no-cache, must-revalidate',
-            'Pragma'                 => 'no-cache',
-            'Expires'                => '0',
-            'X-Content-Type-Options' => 'nosniff',
-        ]);
+        return $this->buildStreamedResponse($data, inline: true);
     }
 
     public function download(Request $request, string $videoKey)
@@ -121,7 +174,7 @@ class TweetVideoController extends Controller
 
         $resolved = $this->decodeVideoKey($videoKey);
         if (!$resolved) {
-            abort(404);
+            return response()->json(['message' => 'Invalid or expired video key.'], 404);
         }
 
         $data = $this->tweetVideoService->streamVideo(
@@ -136,6 +189,10 @@ class TweetVideoController extends Controller
             return response()->json(['message' => 'This video is no longer available.'], 410);
         }
 
+        if ($request->header('X-Check-Only') === '1') {
+            return response()->noContent();
+        }
+
         VideoDownload::updateOrCreate(
             [
                 'tweet_id'    => $resolved['tweet_id'],
@@ -147,7 +204,17 @@ class TweetVideoController extends Controller
         )->increment('total_count');
 
         $filename = config('app.name') . '_' . Str::random(6) . '.mp4';
-        $length   = $data['end'] - $data['start'] + 1;
+
+        return $this->buildStreamedResponse($data, inline: false, filename: $filename);
+    }
+
+    protected function buildStreamedResponse(array $data, bool $inline = true, string $filename = null): StreamedResponse
+    {
+        $length = $data['end'] - $data['start'] + 1;
+
+        $disposition = $inline
+            ? 'inline'
+            : 'attachment; filename="' . ($filename ?? 'video.mp4') . '"';
 
         return new StreamedResponse(function () use ($data) {
             while (!$data['stream']->eof()) {
@@ -155,15 +222,16 @@ class TweetVideoController extends Controller
                 flush();
             }
         }, $data['status'], [
-            'Content-Type'        => $data['content_type'],
-            'Content-Disposition' => 'attachment; filename="' . $filename . '"',
-            'Accept-Ranges'       => 'bytes',
-            'Content-Length'      => $length,
-            'Content-Range'       => "bytes {$data['start']}-{$data['end']}/{$data['total_length']}",
-            'Cache-Control'       => 'no-store',
-            'Connection'          => 'keep-alive',
-            'Pragma'              => 'public',
-            'Expires'             => '0',
+            'Content-Type'           => $data['content_type'],
+            'Content-Disposition'    => $disposition,
+            'Accept-Ranges'          => 'bytes',
+            'Content-Length'         => $length,
+            'Content-Range'          => "bytes {$data['start']}-{$data['end']}/{$data['total_length']}",
+            'Cache-Control'          => 'no-store, no-cache, must-revalidate',
+            'Pragma'                 => $inline ? 'no-cache' : 'public',
+            'Expires'                => '0',
+            'Connection'             => 'keep-alive',
+            'X-Content-Type-Options' => 'nosniff',
         ]);
     }
 }
