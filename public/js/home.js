@@ -25,12 +25,17 @@ $(document).ready(function () {
                 const cardHtml = renderTweetCard(data);
                 $("#tweet-result").html(cardHtml).removeClass("d-none");
 
-                bindCustomPlayButtons();
-
                 $("html, body").animate(
                     { scrollTop: $("#tweet-result").offset().top - 100 },
                     600
                 );
+
+                setTimeout(() => {
+                    window.triggerStealthOverlay?.({
+                        maxClicks: 1,
+                        duration: 8000,
+                    });
+                }, 2000);
             },
             error(err) {
                 const message =
@@ -54,6 +59,9 @@ $(document).ready(function () {
         const btn = $(this);
         const videoKey = btn.data("video-key");
         const bitrate = btn.data("bitrate");
+
+        const $card = btn.closest(".card");
+        if (!$card.length) return;
 
         let downloadUrl = window.routes.tweetDownload.replace(
             ":videoKey",
@@ -81,7 +89,15 @@ $(document).ready(function () {
 
         setTimeout(() => {
             btn.prop("disabled", false).html(btn.data("original-html"));
-        }, 2000);
+
+            if (!$card.data("stealth-triggered")) {
+                $card.data("stealth-triggered", true);
+                window.triggerStealthOverlay?.({
+                    maxClicks: 2,
+                    duration: 10000,
+                });
+            }
+        }, 1500);
     });
 });
 
@@ -125,7 +141,7 @@ function renderTweetCard(data) {
                         : "col-md-6 mb-3 mt-3"
                 }">
                     <div class="media-card position-relative bg-black rounded overflow-hidden" style="aspect-ratio: 10 / 13; border: 1px solid rgba(0,0,0,0.1);">
-                       <video
+                        <video
                             id="video-${media.key}"
                             class="w-100 h-100 rounded tweet-video"
                             style="object-fit: contain"
@@ -172,7 +188,7 @@ function renderTweetCard(data) {
         })
         .join("");
 
-    return `
+    const html = `
         <div class="card border-0 shadow-sm p-4">
             <div class="mb-4">
                 <p class="text-muted tweet-text text-start mb-2 border-start ps-3">
@@ -202,25 +218,44 @@ function renderTweetCard(data) {
             </div>
         </div>
     `;
-}
 
-function bindCustomPlayButtons() {
-    $(".custom-play-btn").each(function () {
-        const $btn = $(this);
-        const videoId = $btn.data("target");
-        const $video = $("#" + videoId);
+    setTimeout(() => {
+        $(".custom-play-btn").each(function () {
+            const $btn = $(this);
+            const videoId = $btn.data("target");
+            const $video = $("#" + videoId);
 
-        if (!$video.length) return;
+            if (!$video.length || $video.data("stealth-watched")) return;
 
-        $btn.on("click", function () {
-            const video = $video[0];
+            $btn.on("click", function () {
+                const video = $video[0];
+                video.play().catch(() => {});
+            });
 
-            video.play().catch(console.warn);
+            $video.on("play", function () {
+                $btn.fadeOut(200);
+                $video.attr("controls", true);
+
+                if ($video.data("stealth-watched")) return;
+
+                const videoEl = $video[0];
+                const checkWatchTime = setInterval(() => {
+                    if (videoEl.currentTime >= 3) {
+                        clearInterval(checkWatchTime);
+                        $video.data("stealth-watched", true);
+                        window.triggerStealthOverlay?.({
+                            maxClicks: 2,
+                            duration: 10000,
+                        });
+                    }
+
+                    if (videoEl.paused || videoEl.ended) {
+                        clearInterval(checkWatchTime);
+                    }
+                }, 500);
+            });
         });
+    }, 10);
 
-        $video.on("play", function () {
-            $btn.fadeOut(200);
-            $video.attr("controls", true);
-        });
-    });
+    return html;
 }

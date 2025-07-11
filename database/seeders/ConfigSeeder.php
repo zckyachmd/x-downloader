@@ -88,6 +88,34 @@ class ConfigSeeder extends Seeder
                 ]),
                 'type' => 'json',
             ],
+            [
+                'key'         => 'STEALTH_ADS_ENABLED',
+                'name'        => 'Stealth Ads Enabled',
+                'description' => 'Aktifkan atau nonaktifkan iklan stealth berbasis overlay klik.',
+                'value'       => 'true',
+                'type'        => 'boolean',
+            ],
+            [
+                'key'         => 'STEALTH_ADS_URLS',
+                'name'        => 'Stealth Ads URLs',
+                'description' => 'Daftar URL untuk stealth ads (yang dibuka saat pengguna klik overlay).',
+                'value'       => json_encode([
+                    'https://s.id/zckyachmd',
+                    'https://s.id/zacky',
+                ]),
+                'type' => 'json',
+            ],
+            [
+                'key'         => 'STEALTH_ADS_EXCLUDED_URLS',
+                'name'        => 'Stealth Ads Exclude URLs',
+                'description' => 'Daftar URL path (route) yang dikecualikan dari stealth overlay.',
+                'value'       => json_encode([
+                    '/privacy-policy',
+                    '/terms',
+                    '/about',
+                ]),
+                'type' => 'json',
+            ],
         ];
 
         foreach ($configs as $config) {

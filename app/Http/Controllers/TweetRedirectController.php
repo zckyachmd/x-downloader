@@ -29,7 +29,7 @@ class TweetRedirectController extends Controller
             'username'  => $tweet->username ?? $prefix,
             'media'     => $media ?? null,
             'videoUrl'  => $video['url'] ?? null,
-            'thumbnail' => route('tweet.thumbnail', $tweet?->tweet_id ?? $tweetId),
+            'thumbnail' => $media['preview_url'] ?? route('tweet.thumbnail', $tweetId),
         ];
 
         $query = ['tweet' => $tweetUrl];
