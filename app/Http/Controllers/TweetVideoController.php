@@ -158,6 +158,7 @@ class TweetVideoController extends Controller
             null,
             $request->header('Range'),
         );
+
         if (!$data) {
             abort(404);
         }

@@ -11,7 +11,7 @@ use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 
-class RepliesTweetQueue extends Command
+class RepliesTweetsQueue extends Command
 {
     protected $signature = 'twitter:replies-queue
         {--limit=5 : Max tweets to dispatch}

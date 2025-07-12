@@ -28,6 +28,6 @@ class Tweet extends Model
 
     public function videoTrendings()
     {
-        return $this->hasMany(VideoTrending::class, 'tweet_id', 'tweet_id');
+        return $this->hasMany(VideoDownload::class, 'tweet_id', 'tweet_id');
     }
 }
