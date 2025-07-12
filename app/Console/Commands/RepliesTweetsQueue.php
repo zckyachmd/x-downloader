@@ -18,6 +18,7 @@ class RepliesTweetsQueue extends Command
         {--max-account=3 : Max accounts to use}
         {--usage=85 : Percent of daily tweet limit to use}
         {--mode=balanced : Mode: safe, balanced, aggressive}
+        {--rest=1 : Max accounts to rest per hour}
         {--force : Force run even if AUTO_TWEET_REPLY is false}';
 
     protected $description = 'Dispatch reply jobs for tweets (status=queue) with related_tweet_id';
@@ -79,6 +80,19 @@ class RepliesTweetsQueue extends Command
             ->get()
             ->filter(fn ($a) => !$this->isOnCooldown($a->id))
             ->values();
+
+        $restCount = max(0, (int) $this->option('rest', 0));
+
+        if ($restCount > 0 && $accounts->count() > $restCount) {
+            $hourKey   = now()->format('YmdH');
+            $restKey   = "tweet:rested-accounts:$hourKey";
+            $restedIds = Cache::remember($restKey, now()->addHour()->diffInSeconds(), function () use ($accounts, $restCount) {
+                return $accounts->shuffle()->take($restCount)->pluck('id')->all();
+            });
+
+            $accounts = $accounts->filter(fn ($a) => !in_array($a->id, $restedIds))->values();
+            $this->line("💤 Rested accounts this hour: " . implode(', ', $restedIds));
+        }
 
         if ($accounts->isEmpty()) {
             $this->warn('⚠️ No available account (cooldown or quota exceeded).');
@@ -195,7 +209,9 @@ class RepliesTweetsQueue extends Command
 
     protected function isOnCooldown(int $accountId): bool
     {
-        return now()->timestamp < Cache::get(self::KEY_COOLDOWN . "$accountId", 0);
+        $cooldownUntil = Cache::get(self::KEY_COOLDOWN . "$accountId", 0);
+
+        return now()->timestamp < $cooldownUntil;
     }
 
     protected function scheduleCooldown(int $accountId, Carbon $runAt): void

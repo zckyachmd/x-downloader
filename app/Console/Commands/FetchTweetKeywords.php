@@ -14,6 +14,7 @@ class FetchTweetKeywords extends Command
         {--mode=all : Mode to fetch: all, fresh, or historical}
         {--limit=3 : Limit number of accounts}
         {--max-keyword=3 : Limit keywords from config}
+        {--rest=1 : Number of accounts to skip this run for 1 hour}
         {--force : Override AUTO_SEARCH_TWEET check}';
 
     protected $description = 'Dispatch fetch jobs per keyword per account with staggered delays';
@@ -73,6 +74,21 @@ class FetchTweetKeywords extends Command
         $accountList = $accounts->values();
         $keywordMap  = [];
 
+        $restCount = max(0, (int) $this->option('rest', 0));
+        $restKey   = 'fetch-rest-accounts:' . $now->format('YmdH');
+
+        $restedUsernames = Cache::remember($restKey, now()->addMinutes(61), function () use ($accountList, $restCount) {
+            $available = $accountList->pluck('username')->toArray();
+
+            if ($restCount >= count($available)) {
+                $restCount = count($available) - 1;
+            }
+
+            return collect($available)->shuffle()->take($restCount)->values()->all();
+        });
+
+        $this->line('🛌 Accounts resting this hour: ' . implode(', ', $restedUsernames));
+
         foreach ($keywords as $i => $keyword) {
             $accountIndex                     = $i % $accountList->count();
             $account                          = $accountList[$accountIndex];
@@ -81,6 +97,11 @@ class FetchTweetKeywords extends Command
 
         foreach ($accountList as $accountIndex => $account) {
             $username = $account->username;
+
+            if (in_array($username, $restedUsernames)) {
+                $this->warn("😴 @$username is resting this hour. Skipping.");
+                continue;
+            }
 
             if (empty($keywordMap[$username])) {
                 $this->warn("⚠️ @$username has no keywords assigned. Skipping.");
