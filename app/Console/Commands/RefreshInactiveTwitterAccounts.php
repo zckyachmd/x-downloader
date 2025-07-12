@@ -6,6 +6,7 @@ use App\Jobs\RefreshTwitterAccountJob;
 use App\Models\Config;
 use App\Models\UserTwitter;
 use Illuminate\Console\Command;
+use Illuminate\Support\Facades\Cache;
 
 class RefreshInactiveTwitterAccounts extends Command
 {
@@ -24,9 +25,8 @@ class RefreshInactiveTwitterAccounts extends Command
             return self::SUCCESS;
         }
 
-        $limit = (int) $this->option('limit', 3);
-        $mode  = in_array($this->option('mode'), ['light', 'deep']) ? $this->option('mode') : 'light';
-
+        $limit   = (int) $this->option('limit', 3);
+        $mode    = in_array($this->option('mode'), ['light', 'deep']) ? $this->option('mode') : 'light';
         $minDays = $mode === 'deep' ? rand(2, 3) : rand(5, 7);
         $now     = now();
 
@@ -49,8 +49,17 @@ class RefreshInactiveTwitterAccounts extends Command
 
         $baseDelay   = 10;
         $jitterRange = [5, 15];
+        $lockTtl     = 600;
 
         foreach ($accounts as $i => $account) {
+            $lockKey = "refresh-lock:{$account->username}";
+            $lock    = Cache::lock($lockKey, $lockTtl);
+
+            if (!$lock->get()) {
+                $this->line("🚫 Skip @$account->username (already queued)");
+                continue;
+            }
+
             $jitter = rand(...$jitterRange);
             $delay  = now()->addSeconds(($i * $baseDelay) + $jitter);
 

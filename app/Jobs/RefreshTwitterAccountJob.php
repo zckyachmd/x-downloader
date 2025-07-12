@@ -31,15 +31,6 @@ class RefreshTwitterAccountJob implements ShouldQueue
 
     public function handle(): void
     {
-        $lockKey = "refresh-lock:{$this->username}";
-        $lock    = Cache::lock($lockKey, 15 * 60);
-
-        if (!$lock->get()) {
-            Log::info("[RefreshJob] 🔒 Locked @{$this->username}, skipping.");
-
-            return;
-        }
-
         $account = UserTwitter::where('username', $this->username)->first();
         if (!$account) {
             Log::warning("[RefreshTwitterAccountJob] Account not found @$this->username");
@@ -101,8 +92,6 @@ class RefreshTwitterAccountJob implements ShouldQueue
             ]);
             $this->markFail($cacheKey);
             throw $e;
-        } finally {
-            $lock->release();
         }
     }
 

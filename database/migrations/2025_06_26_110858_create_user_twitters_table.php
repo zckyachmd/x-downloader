@@ -12,7 +12,7 @@ return new class () extends Migration {
     {
         Schema::create('user_twitters', function (Blueprint $table) {
             $table->id();
-            $table->string('username', 50)->unique();
+            $table->string('username', 50);
             $table->text('password');
             $table->json('tokens')->nullable();
             $table->json('cookies')->nullable();
