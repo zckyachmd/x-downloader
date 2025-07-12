@@ -44,12 +44,17 @@ class FetchTweetKeywords extends Command
             ->take($keywordLimit)
             ->values();
 
-        $accounts = UserTwitter::query()
+        $rawAccounts = UserTwitter::query()
             ->where('is_active', true)
             ->where('is_main', false)
             ->orderByRaw('CASE WHEN last_used_at IS NULL THEN 0 ELSE 1 END, last_used_at ASC')
-            ->limit($accountLimit)
             ->get();
+
+        $accounts = $rawAccounts
+            ->groupBy('username')
+            ->map(fn ($group) => $group->random())
+            ->values()
+            ->take($accountLimit);
 
         if ($keywords->isEmpty() || $accounts->isEmpty()) {
             $this->warn("❌ No keywords or accounts available.");

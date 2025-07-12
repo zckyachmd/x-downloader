@@ -72,14 +72,18 @@ class RepliesTweetsQueue extends Command
             return;
         }
 
-        $accounts = UserTwitter::query()
+        $rawAccounts = UserTwitter::query()
             ->where('is_active', true)
             ->where('is_main', true)
             ->orderByRaw('CASE WHEN last_used_at IS NULL THEN 0 ELSE 1 END, last_used_at ASC')
-            ->limit((int) $this->option('max-account', 3))
-            ->get()
+            ->get();
+
+        $accounts = $rawAccounts
+            ->groupBy('username')
+            ->map(fn ($group) => $group->random())
             ->filter(fn ($a) => !$this->isOnCooldown($a->id))
-            ->values();
+            ->values()
+            ->take((int) $this->option('max-account', 3));
 
         $restCount = max(0, (int) $this->option('rest', 0));
 

@@ -35,9 +35,12 @@ class RefreshInactiveTwitterAccounts extends Command
                 $q->where('is_active', false)
                     ->orWhere('updated_at', '<=', $now->subDays($minDays));
             })
-            ->orderBy('updated_at')
-            ->limit($limit)
-            ->get();
+            ->inRandomOrder()
+            ->get()
+            ->groupBy('username')
+            ->map(fn ($rows) => $rows->first())
+            ->values()
+            ->take($limit);
 
         if ($accounts->isEmpty()) {
             $this->info("✅ No stale/inactive accounts found.");
