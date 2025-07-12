@@ -14,7 +14,7 @@ class FetchTweetKeywords extends Command
         {--mode=all : Mode to fetch: all, fresh, or historical}
         {--limit=3 : Limit number of accounts}
         {--max-keyword=3 : Limit keywords from config}
-        {--rest=1 : Number of accounts to skip this run for 1 hour}
+        {--rest=1 : Max accounts to rest per hour}
         {--force : Override AUTO_SEARCH_TWEET check}';
 
     protected $description = 'Dispatch fetch jobs per keyword per account with staggered delays';
