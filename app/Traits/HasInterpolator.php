@@ -1,20 +1,24 @@
 <?php
 
-namespace App\Utils;
+namespace App\Traits;
 
 use Illuminate\Support\Facades\Log;
 
-class Interpolator
+trait HasInterpolator
 {
     /**
-     * Interpolasi string template dengan data kunci.
+     * Interpolasi string template.
      *
      * Example:
      *  - Template: "Hello, {{name}}!"
      *  - Data: ['name' => 'Zacky']
      *  - Output: "Hello, Zacky!"
+     *
+     * @param string $template
+     * @param array $data
+     * @return string
      */
-    public static function render(string $template, array $data = []): string
+    public function interpolate(string $template, array $data = []): string
     {
         return preg_replace_callback('/{{(\w+)}}/', function ($matches) use ($data) {
             $key   = $matches[1];

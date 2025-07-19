@@ -2,10 +2,11 @@
 
 namespace App\Jobs;
 
+use App\Contracts\ShlinkClientContract;
 use App\Models\Config;
 use App\Models\Tweet;
 use App\Models\UserTwitter;
-use App\Utils\Interpolator;
+use App\Traits\HasInterpolator;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -17,6 +18,7 @@ use Illuminate\Support\Facades\Log;
 
 class ReplyToQueuedJob implements ShouldQueue
 {
+    use HasInterpolator;
     use Dispatchable;
     use InteractsWithQueue;
     use Queueable;
@@ -25,12 +27,14 @@ class ReplyToQueuedJob implements ShouldQueue
     public int $tries;
     protected int $tweetId;
     protected int $accountId;
+    protected ShlinkClientContract $shlink;
 
     public function __construct(int $tweetId, int $accountId)
     {
         $this->tweetId   = $tweetId;
         $this->accountId = $accountId;
         $this->tries     = (int) env('QUEUE_TRIES', 1);
+        $this->shlink    = app(ShlinkClientContract::class);
     }
 
     public function handle(): void
@@ -92,13 +96,14 @@ class ReplyToQueuedJob implements ShouldQueue
                 return;
             }
 
-            $replyText = Interpolator::render("@{{username}} {$rawTemplate}", [
-                'username'  => $tweet->username,
-                'tweet_url' => "https://x.com/i/status/{$tweet->related_tweet_id}",
-                'link'      => route('tweet.redirect', [
-                    'prefix'  => 'i',
-                    'tweetId' => $tweet->related_tweet_id,
-                ]),
+            $link = route('tweet.redirect', [
+                'prefix'  => $tweet->username ?? 'i',
+                'tweetId' => $tweet->related_tweet_id,
+            ]);
+
+            $replyText = $this->interpolate($rawTemplate, [
+                'username' => "@{$tweet->username}",
+                'link'     => $this->shlink->shorten($link),
             ]);
 
             $endpoint = rtrim(Config::getValue('API_X_DOWNLOADER', 'http://localhost:3000'), '/') . '/tweet/create';

@@ -2,7 +2,9 @@
 
 namespace App\Providers;
 
+use App\Contracts\ShlinkClientContract;
 use App\Models\Config;
+use App\Services\ShlinkClient;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
@@ -14,7 +16,7 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        $this->app->bind(ShlinkClientContract::class, ShlinkClient::class);
     }
 
     /**
