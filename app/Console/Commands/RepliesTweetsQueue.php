@@ -6,6 +6,7 @@ use App\Jobs\ReplyToQueuedJob;
 use App\Models\Config;
 use App\Models\Tweet;
 use App\Models\UserTwitter;
+use App\Traits\HasConfig;
 use Carbon\Carbon;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Cache;
@@ -13,12 +14,16 @@ use Illuminate\Support\Facades\DB;
 
 class RepliesTweetsQueue extends Command
 {
+    use HasConfig;
+
     protected $signature = 'twitter:replies-queue
-        {--limit=5 : Max tweets to dispatch}
-        {--max-account=3 : Max accounts to use}
-        {--usage=85 : Percent of daily tweet limit to use}
-        {--mode=balanced : Mode: safe, balanced, aggressive}
-        {--rest=1 : Max accounts to rest per hour}
+        {--limit= : Max tweets to dispatch}
+        {--max-account= : Max accounts to use}
+        {--usage= : Percent of daily tweet limit to use}
+        {--mode= : Mode: safe, balanced, aggressive}
+        {--rest-start= : Rest window start time (e.g. 00:00)}
+        {--rest-end= : Rest window end time (e.g. 03:00)}
+        {--rest= : Max accounts to rest per hour}
         {--force : Force run even if AUTO_TWEET_REPLY is false}';
 
     protected $description = 'Dispatch reply jobs for tweets (status=queue) with related_tweet_id';
@@ -29,28 +34,33 @@ class RepliesTweetsQueue extends Command
 
     public function handle()
     {
-        if (!$this->option('force') && !Config::getValue('AUTO_TWEET_REPLY', true)) {
-            $this->warn('⚠️ AUTO_TWEET_REPLY is disabled. Use --force to override.');
+        if (!$this->option('force')) {
+            if (!Config::getValue('AUTO_TWEET_REPLY', true)) {
+                $this->warn('⚠️ AUTO_TWEET_REPLY is disabled. Use --force to override.');
 
-            return self::FAILURE;
+                return self::SUCCESS;
+            }
+
+            if ($this->isRestWindow()) {
+                $this->warn("😴 Skipped due to rest window. Use --force to override.");
+
+                return self::SUCCESS;
+            }
         }
 
-        $modePresets = [
-            'safe'       => ['base' => 90, 'burst' => [60, 150], 'jitter' => [40, 90]],
-            'balanced'   => ['base' => 60, 'burst' => [40, 120], 'jitter' => [30, 70]],
-            'aggressive' => ['base' => 40, 'burst' => [20, 90], 'jitter' => [15, 50]],
-        ];
+        $limit      = (int) $this->getConfig('TWEET_REPLY_LIMIT', 5, 'limit');
+        $maxAccount = (int) $this->getConfig('TWEET_REPLY_MAX_ACCOUNT', 3, 'max-account');
+        $usage      = max(1, min((int) $this->getConfig('TWEET_REPLY_USAGE_LIMIT', 85, 'usage'), 100));
+        $mode       = $this->getConfig('TWEET_REPLY_MODE', 'balanced', 'mode');
+        $restCount  = (int) $this->getConfig('TWEET_REPLY_REST_LIMIT', 1, 'rest');
 
-        $mode   = $this->option('mode');
-        $config = $modePresets[$mode] ?? null;
-
+        $config = $this->getModeConfig($mode);
         if (!$config) {
             $this->error("❌ Invalid mode: $mode. Use one of: safe, balanced, aggressive.");
 
             return self::FAILURE;
         }
 
-        $usage     = max(1, min((int) $this->option('usage', 85), 100));
         $maxDaily  = (int) (2400 * $usage / 100);
         $maxHourly = (int) ($maxDaily / 24);
 
@@ -63,13 +73,13 @@ class RepliesTweetsQueue extends Command
             ->whereNotNull('related_tweet_id')
             ->whereNotIn(DB::raw('LOWER(username)'), $excluded)
             ->orderBy('created_at')
-            ->limit((int) $this->option('limit', 5))
+            ->limit($limit)
             ->get();
 
         if ($tweets->isEmpty()) {
             $this->warn('⚠️ No tweets found to reply.');
 
-            return;
+            return self::SUCCESS;
         }
 
         $rawAccounts = UserTwitter::query()
@@ -83,25 +93,20 @@ class RepliesTweetsQueue extends Command
             ->map(fn ($group) => $group->random())
             ->filter(fn ($a) => !$this->isOnCooldown($a->id))
             ->values()
-            ->take((int) $this->option('max-account', 3));
+            ->take($maxAccount);
 
-        $restCount = max(0, (int) $this->option('rest', 0));
+        $hourKey  = now()->format('YmdH');
+        $accounts = $accounts->filter(function ($account) use ($restCount, $hourKey) {
+            $restKey = "tweet:rest-limit:{$account->id}:$hourKey";
+            $count   = Cache::get($restKey, 0);
 
-        if ($restCount > 0 && $accounts->count() > $restCount) {
-            $hourKey   = now()->format('YmdH');
-            $restKey   = "tweet:rested-accounts:$hourKey";
-            $restedIds = Cache::remember($restKey, now()->addHour()->diffInSeconds(), function () use ($accounts, $restCount) {
-                return $accounts->shuffle()->take($restCount)->pluck('id')->all();
-            });
-
-            $accounts = $accounts->filter(fn ($a) => !in_array($a->id, $restedIds))->values();
-            $this->line("💤 Rested accounts this hour: " . implode(', ', $restedIds));
-        }
+            return $count < $restCount;
+        })->values();
 
         if ($accounts->isEmpty()) {
             $this->warn('⚠️ No available account (cooldown or quota exceeded).');
 
-            return;
+            return self::SUCCESS;
         }
 
         $now        = now();
@@ -109,10 +114,7 @@ class RepliesTweetsQueue extends Command
         $dispatched = 0;
 
         foreach ($tweets as $i => $tweet) {
-            $updated = Tweet::whereKey($tweet->id)
-                ->where('status', 'queue')
-                ->update(['status' => 'process']);
-
+            $updated = Tweet::whereKey($tweet->id)->where('status', 'queue')->update(['status' => 'process']);
             if (!$updated) {
                 $this->line("⏭️ Skipped {$tweet->tweet_id} (taken)");
                 continue;
@@ -130,35 +132,62 @@ class RepliesTweetsQueue extends Command
             }
 
             $lock = Cache::lock("lock:tweet:account:{$account->id}", 10);
-
-            if ($lock->get()) {
-                try {
-                    $runAt = $this->calculateNextRunTime($account->id, $now, $config, $i);
-
-                    ReplyToQueuedJob::dispatch($tweet->id, $account->id)
-                        ->onQueue('medium')
-                        ->delay($runAt);
-
-                    $this->line("🚀 {$tweet->tweet_id} → {$runAt->format('H:i:s')} [@{$account->username}]");
-
-                    $dispatched++;
-
-                    $this->incrementQuota($account->id);
-                    $this->scheduleCooldown($account->id, $runAt);
-                    $account->forceFill(['last_used_at' => now()])->save();
-                } finally {
-                    $lock->release();
-                }
-            } else {
+            if (!$lock->get()) {
                 $this->warn("⏳ Skipped {$tweet->tweet_id} — Account @{$account->username} is busy.");
                 $tweet->update(['status' => 'queue']);
+
+                $restKey = "tweet:rest-limit:{$account->id}:" . now()->format('YmdH');
+                $count   = Cache::increment($restKey);
+                if ($count === 1) {
+                    Cache::put($restKey, 1, now()->addHour()->startOfHour()->addHour()->diffInRealSeconds());
+                }
                 continue;
+            }
+
+            try {
+                $runAt = $this->calculateNextRunTime($account->id, $now, $config, $i);
+
+                ReplyToQueuedJob::dispatch($tweet->id, $account->id)
+                    ->onQueue('medium')
+                    ->delay($runAt);
+
+                $this->line("🚀 {$tweet->tweet_id} → {$runAt->format('H:i:s')} [@{$account->username}]");
+
+                $dispatched++;
+
+                $this->incrementQuota($account->id);
+                $this->scheduleCooldown($account->id, $runAt);
+                $account->forceFill(['last_used_at' => now()])->save();
+            } finally {
+                $lock->release();
             }
         }
 
         $this->info("✅ $dispatched replies dispatched (mode=$mode, usage=$usage%).");
 
         return self::SUCCESS;
+    }
+
+    protected function isRestWindow(): bool
+    {
+        $now   = now();
+        $start = Carbon::parse($this->getConfig('TWEET_REST_START_TIME', '00:00', 'rest-start'), $now->timezone);
+        $end   = Carbon::parse($this->getConfig('TWEET_REST_END_TIME', '03:00', 'rest-end'), $now->timezone);
+
+        if ($start->gt($end)) {
+            $end->addDay();
+        }
+
+        return $now->between($start, $end);
+    }
+
+    protected function getModeConfig(string $mode): ?array
+    {
+        return [
+            'safe'       => ['base' => 90, 'burst' => [60, 150], 'jitter' => [40, 90]],
+            'balanced'   => ['base' => 60, 'burst' => [40, 120], 'jitter' => [30, 70]],
+            'aggressive' => ['base' => 40, 'burst' => [20, 90], 'jitter' => [15, 50]],
+        ][$mode] ?? null;
     }
 
     protected function getQuotaKey(int $accountId, string $type): string

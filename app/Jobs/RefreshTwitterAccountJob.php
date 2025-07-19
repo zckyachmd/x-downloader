@@ -26,7 +26,7 @@ class RefreshTwitterAccountJob implements ShouldQueue
     public function __construct(string $username)
     {
         $this->username = $username;
-        $this->tries    = (int) env('QUEUE_TRIES', 3);
+        $this->tries    = (int) env('QUEUE_TRIES', 1);
     }
 
     public function handle(): void
@@ -91,7 +91,6 @@ class RefreshTwitterAccountJob implements ShouldQueue
                 'error' => $e->getMessage(),
             ]);
             $this->markFail($cacheKey);
-            throw $e;
         }
     }
 
@@ -104,10 +103,5 @@ class RefreshTwitterAccountJob implements ShouldQueue
     public function tags(): array
     {
         return ['refresh-twitter', "user:{$this->username}"];
-    }
-
-    public function backoff(): array
-    {
-        return [15, 60, 180];
     }
 }

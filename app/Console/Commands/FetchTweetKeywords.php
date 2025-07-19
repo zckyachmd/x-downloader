@@ -3,33 +3,36 @@
 namespace App\Console\Commands;
 
 use App\Jobs\FetchTweetsKeywordJob;
-use App\Models\Config;
 use App\Models\UserTwitter;
+use App\Traits\HasConfig;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Cache;
 
 class FetchTweetKeywords extends Command
 {
+    use HasConfig;
+
     protected $signature = 'twitter:fetch-tweets
-        {--mode=all : Mode to fetch: all, fresh, or historical}
-        {--limit=3 : Limit number of accounts}
-        {--max-keyword=3 : Limit keywords from config}
-        {--rest=1 : Max accounts to rest per hour}
+        {--mode : Mode to fetch: all, fresh, or historical}
+        {--limit : Limit number of accounts}
+        {--max-keyword : Limit keywords from config}
+        {--rest : Max accounts to rest per hour}
         {--force : Override AUTO_SEARCH_TWEET check}';
 
     protected $description = 'Dispatch fetch jobs per keyword per account with staggered delays';
 
     public function handle()
     {
-        if (!$this->option('force') && !Config::getValue('AUTO_SEARCH_TWEET', true)) {
+        if (!$this->option('force') && !$this->getConfig('AUTO_SEARCH_TWEET', true)) {
             $this->warn("⚠️ AUTO_SEARCH_TWEET is disabled. Use --force to override.");
 
             return self::SUCCESS;
         }
 
-        $modeOption   = $this->option('mode');
-        $accountLimit = (int) $this->option('limit', 3);
-        $keywordLimit = (int) $this->option('max-keyword', 3);
+        $modeOption   = $this->getConfig('TWEET_FETCH_MODE', 'all', 'mode');
+        $accountLimit = (int) $this->getConfig('TWEET_FETCH_ACCOUNT_LIMIT', 3, 'limit');
+        $keywordLimit = (int) $this->getConfig('TWEET_FETCH_KEYWORD_LIMIT', 3, 'max-keyword');
+        $restLimit    = (int) $this->getConfig('TWEET_FETCH_REST_LIMIT', 1, 'rest');
 
         if (!in_array($modeOption, ['all', 'fresh', 'historical'], true)) {
             $this->error("❌ Invalid mode: $modeOption. Use fresh, historical, or all.");
@@ -37,7 +40,7 @@ class FetchTweetKeywords extends Command
             return self::FAILURE;
         }
 
-        $keywords = collect(explode(';', Config::getValue('TWEET_SEARCH_KEYWORDS', '')))
+        $keywords = collect(explode(';', $this->getConfig('TWEET_SEARCH_KEYWORDS', '')))
             ->map(fn ($k) => trim($k))
             ->filter()
             ->shuffle()
@@ -62,54 +65,55 @@ class FetchTweetKeywords extends Command
             return self::FAILURE;
         }
 
-        $this->dispatchJobs($accounts, $keywords, $modeOption);
+        $this->dispatchJobs($accounts, $keywords, $modeOption, $restLimit);
 
         return self::SUCCESS;
     }
 
-    protected function dispatchJobs($accounts, $keywords, string $modeOption): void
+    protected function dispatchJobs($accounts, $keywords, string $modeOption, int $restLimit): void
     {
-        $now                = now();
-        $jobIndex           = 0;
-        $maxDepth           = (int) Config::getValue('TWEET_SEARCH_KEYWORDS_MAX_DEPTH', 2);
-        $keywordCooldown    = fn () => rand(150, 180);
-        $freshToHistDelay   = fn () => rand(60, 90);
-        $accountStartOffset = fn ($i) => $i * rand(10, 25);
+        $now              = now();
+        $jobIndex         = 0;
+        $maxDepth         = (int) $this->getConfig('TWEET_SEARCH_KEYWORDS_MAX_DEPTH', 2);
+        $keywordCooldown  = fn () => rand(150, 180);
+        $freshToHistDelay = fn () => rand(60, 90);
+        $accountStart     = fn ($i) => $i * rand(10, 25);
 
-        $accountList = $accounts->values();
-        $keywordMap  = [];
+        $accountList     = $accounts->values();
+        $restedUsernames = [];
 
-        $restCount = max(0, (int) $this->option('rest', 0));
-        $restKey   = 'fetch-rest-accounts:' . $now->format('YmdH');
+        foreach ($accountList as $account) {
+            $username    = $account->username;
+            $restKey     = "fetch-rest-limit:{$username}:" . $now->format('YmdH');
+            $currentRest = (int) Cache::get($restKey, 0);
 
-        $restedUsernames = Cache::remember($restKey, now()->addMinutes(61), function () use ($accountList, $restCount) {
-            $available = $accountList->pluck('username')->toArray();
-
-            if ($restCount >= count($available)) {
-                $restCount = count($available) - 1;
+            if ($currentRest >= $restLimit) {
+                $restedUsernames[] = $username;
             }
-
-            return collect($available)->shuffle()->take($restCount)->values()->all();
-        });
+        }
 
         $this->line('🛌 Accounts resting this hour: ' . implode(', ', $restedUsernames));
 
+        $keywordMap = [];
         foreach ($keywords as $i => $keyword) {
-            $accountIndex                     = $i % $accountList->count();
-            $account                          = $accountList[$accountIndex];
+            $index                            = $i % $accountList->count();
+            $account                          = $accountList[$index];
             $keywordMap[$account->username][] = $keyword;
         }
 
-        foreach ($accountList as $accountIndex => $account) {
+        foreach ($accountList as $i => $account) {
             $username = $account->username;
 
             if (in_array($username, $restedUsernames)) {
                 $this->warn("😴 @$username is resting this hour. Skipping.");
+                $restKey = "fetch-rest-limit:$username:" . $now->format('YmdH');
+                Cache::increment($restKey);
+                Cache::put($restKey, Cache::get($restKey), now()->addMinutes(61));
                 continue;
             }
 
             if (empty($keywordMap[$username])) {
-                $this->warn("⚠️ @$username has no keywords assigned. Skipping.");
+                $this->warn("⚠️ @$username has no keywords. Skipping.");
                 continue;
             }
 
@@ -119,27 +123,22 @@ class FetchTweetKeywords extends Command
             }
 
             $this->lockAccount($username);
-
-            $startTime = $now->copy()->addSeconds($accountStartOffset($accountIndex));
-            $current   = clone $startTime;
+            $current = $now->copy()->addSeconds($accountStart($i));
 
             foreach ($keywordMap[$username] as $keyword) {
                 $modes = $modeOption === 'all' ? ['fresh', 'historical'] : [$modeOption];
 
                 foreach ($modes as $mode) {
-                    $repeat = match ($mode) {
-                        'fresh'      => 1,
-                        'historical' => max(0, $maxDepth - 1),
-                    };
+                    $repeat = $mode === 'fresh' ? 1 : max(0, $maxDepth - 1);
 
-                    for ($depth = 0; $depth < $repeat; $depth++) {
+                    for ($d = 0; $d < $repeat; $d++) {
                         FetchTweetsKeywordJob::dispatch($username, $keyword, $mode)
                             ->onQueue('high')
                             ->delay($current);
 
-                        $this->line("⏳ [$current] @$username → '$keyword' (mode=$mode, depth=$depth)");
+                        $this->line("⏳ [$current] @$username → '$keyword' (mode=$mode, depth=$d)");
 
-                        if ($depth === 0 && $mode === 'fresh') {
+                        if ($d === 0 && $mode === 'fresh') {
                             $current->addSeconds($freshToHistDelay());
                         }
                     }
@@ -152,8 +151,6 @@ class FetchTweetKeywords extends Command
             $account->update(['last_used_at' => now()]);
             $this->info("📨 Dispatched $jobIndex jobs for @$username.");
         }
-
-        $this->info("📥 Total dispatched jobs: $jobIndex");
     }
 
     protected function isAccountLocked(string $username): bool

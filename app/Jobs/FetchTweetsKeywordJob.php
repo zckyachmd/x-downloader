@@ -31,7 +31,7 @@ class FetchTweetsKeywordJob implements ShouldQueue
         $this->username = $username;
         $this->keyword  = $keyword;
         $this->mode     = $mode;
-        $this->tries    = (int) env('QUEUE_TRIES', 3);
+        $this->tries    = (int) env('QUEUE_TRIES', 1);
     }
 
     public function handle(): void
@@ -199,10 +199,5 @@ class FetchTweetsKeywordJob implements ShouldQueue
             "keyword:" . str($this->keyword)->slug(),
             "mode:{$this->mode}",
         ];
-    }
-
-    public function backoff(): array
-    {
-        return [15, 60, 180];
     }
 }

@@ -30,7 +30,7 @@ class ReplyToQueuedJob implements ShouldQueue
     {
         $this->tweetId   = $tweetId;
         $this->accountId = $accountId;
-        $this->tries     = (int) env('QUEUE_TRIES', 3);
+        $this->tries     = (int) env('QUEUE_TRIES', 1);
     }
 
     public function handle(): void
@@ -159,7 +159,7 @@ class ReplyToQueuedJob implements ShouldQueue
         }
     }
 
-    public function failed(\Throwable $exception): void
+    public function failed(): void
     {
         $tweet = Tweet::find($this->tweetId);
 
@@ -172,10 +172,5 @@ class ReplyToQueuedJob implements ShouldQueue
     public function tags(): array
     {
         return ['tweet-queue-reply', "tweet:{$this->tweetId}", "account:{$this->accountId}"];
-    }
-
-    public function backoff(): array
-    {
-        return [15, 60, 180];
     }
 }

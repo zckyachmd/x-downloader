@@ -21,9 +21,11 @@ class EnsureTweetVideoJob implements ShouldQueue, ShouldBeUnique
     use SerializesModels;
 
     public $uniqueFor = 30;
+    protected $tweetId;
 
-    public function __construct(protected int $tweetId)
+    public function __construct(int $tweetId)
     {
+        $this->tweetId = $tweetId;
     }
 
     public function handle(TweetVideoServiceContract $service): void

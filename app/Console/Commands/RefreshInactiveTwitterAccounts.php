@@ -3,58 +3,57 @@
 namespace App\Console\Commands;
 
 use App\Jobs\RefreshTwitterAccountJob;
-use App\Models\Config;
 use App\Models\UserTwitter;
+use App\Traits\HasConfig;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Cache;
 
 class RefreshInactiveTwitterAccounts extends Command
 {
+    use HasConfig;
+
     protected $signature = 'twitter:refresh-inactive
-        {--limit=3 : Max accounts to refresh}
-        {--mode=light : Mode of refresh: light|deep}
-        {--force : Force run even if AUTO_TWEET_REPLY is false}';
+        {--limit= : Max accounts to refresh (default from config or 2-5)}
+        {--mode= : Mode of refresh: light|deep (default=light)}
+        {--force : Force run even if AUTO_REFRESH_TOKEN is false}';
 
     protected $description = 'Dispatch jobs to refresh inactive or stale Twitter accounts';
 
-    public function handle()
+    public function handle(): int
     {
-        if (!$this->option('force') && !Config::getValue('AUTO_REFRESH_TOKEN', true)) {
+        if (!$this->option('force') && !$this->getConfig('AUTO_REFRESH_TOKEN', true)) {
             $this->warn("⚠️ AUTO_REFRESH_TOKEN is disabled. Use --force to override.");
 
             return self::SUCCESS;
         }
 
-        $limit   = (int) $this->option('limit', 3);
-        $mode    = in_array($this->option('mode'), ['light', 'deep']) ? $this->option('mode') : 'light';
-        $minDays = $mode === 'deep' ? rand(2, 3) : rand(5, 7);
-        $now     = now();
+        $mode         = $this->getConfig('TWITTER_REFRESH_MODE', 'light', 'mode');
+        $limit        = (int) $this->getConfig('TWITTER_REFRESH_LIMIT', rand(2, 5), 'limit');
+        $activeChance = 20;
+        $minDays      = $mode === 'deep' ? rand(2, 3) : rand(5, 8);
+        $now          = now();
 
-        $accounts = UserTwitter::select(['username'])
-            ->where(function ($q) use ($minDays, $now) {
-                $q->where('is_active', false)
-                    ->orWhere('updated_at', '<=', $now->subDays($minDays));
-            })
+        $candidates = UserTwitter::select(['username', 'is_active', 'updated_at'])
+            ->where('updated_at', '<=', $now->subDays($minDays))
             ->inRandomOrder()
             ->get()
-            ->groupBy('username')
-            ->map(fn ($rows) => $rows->first())
-            ->values()
-            ->take($limit);
+            ->filter(fn ($acc) => !$acc->is_active || rand(1, 100) <= $activeChance)
+            ->unique('username')
+            ->take($limit)
+            ->values();
 
-        if ($accounts->isEmpty()) {
+        if ($candidates->isEmpty()) {
             $this->info("✅ No stale/inactive accounts found.");
 
             return self::SUCCESS;
         }
 
-        $this->info("🔍 Found {$accounts->count()} accounts (idle ≥ {$minDays} days)");
+        $this->info("🔍 Found {$candidates->count()} accounts (idle ≥ {$minDays} days)");
 
-        $baseDelay   = 10;
-        $jitterRange = [5, 15];
-        $lockTtl     = 600;
+        $lockTtl    = rand(300, 900);
+        $delaysUsed = [];
 
-        foreach ($accounts as $i => $account) {
+        foreach ($candidates as $account) {
             $lockKey = "refresh-lock:{$account->username}";
             $lock    = Cache::lock($lockKey, $lockTtl);
 
@@ -63,17 +62,20 @@ class RefreshInactiveTwitterAccounts extends Command
                 continue;
             }
 
-            $jitter = rand(...$jitterRange);
-            $delay  = now()->addSeconds(($i * $baseDelay) + $jitter);
+            do {
+                $delaySeconds = rand(7, 45);
+            } while (in_array($delaySeconds, $delaysUsed));
+            $delaysUsed[] = $delaySeconds;
 
             RefreshTwitterAccountJob::dispatch($account->username, $mode)
                 ->onQueue('high')
-                ->delay($delay);
+                ->delay(now()->addSeconds($delaySeconds));
 
-            $this->line("⏳ Delayed @$account->username by {$delay->diffInSeconds(now())}s");
+            $this->line("⏳ Delayed @$account->username by {$delaySeconds}s");
+            usleep(rand(500, 1500) * 1000);
         }
 
-        $this->info("📤 Dispatched refresh jobs in mode={$mode} with spacing.");
+        $this->info("📤 Dispatched refresh jobs in mode={$mode}.");
 
         return self::SUCCESS;
     }
