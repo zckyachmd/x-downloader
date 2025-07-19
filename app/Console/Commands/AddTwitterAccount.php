@@ -14,7 +14,7 @@ class AddTwitterAccount extends Command
     protected $signature = 'twitter:add
                             {--username= : Twitter username (required)}
                             {--password= : Password (required)}
-                            {--main : Set as main account (optional)}';
+                            {--main : (bool) Set as main account (optional)}';
 
     protected $description = 'Tambah akun Twitter ke tabel user_twitters';
 
@@ -31,7 +31,7 @@ class AddTwitterAccount extends Command
     {
         $username = $this->option('username');
         $password = $this->option('password');
-        $isMain   = (bool) $this->option('main');
+        $isMain   = $this->option('main');
 
         if (!$username || !$password) {
             $this->error('--username and --password are required.');

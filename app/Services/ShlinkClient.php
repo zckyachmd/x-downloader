@@ -14,35 +14,35 @@ class ShlinkClient implements ShlinkClientContract
     public function shorten(string $longUrl): string
     {
         $enabled = $this->getConfig('SHLINK_ENABLED', false);
-        $apiUrl  = $this->getConfig('SHLINK_API_URL', '');
-        $apiKey  = $this->getConfig('SHLINK_API_KEY', '');
+        $apiUrl  = $this->getConfig('SHLINK_API_URL');
+        $apiKey  = $this->getConfig('SHLINK_API_KEY');
 
         if (!$enabled || empty($apiUrl) || empty($apiKey)) {
             return $longUrl;
         }
 
         try {
-            $response = Http::timeout(3)
-                ->retry(1, 500)
+            $response = Http::timeout(10)
+                ->retry(2, 1000)
                 ->withHeaders([
                     'X-Api-Key' => $apiKey,
                 ])
                 ->post("{$apiUrl}/rest/v3/short-urls", [
                     'longUrl' => $longUrl,
-                    'tags'    => ['app:' . config('app.name')],
+                    'tags'    => ['app:' . config('app.name', 'x-downloader')],
                 ]);
 
-            if (!$response->successful()) {
-                Log::warning('[ShlinkClient] Failed to shorten URL', [
-                    'long_url' => $longUrl,
-                    'status'   => $response->status(),
-                    'response' => $response->body(),
+            $shortUrl = $response->json('shortUrl');
+
+            if (!$shortUrl) {
+                Log::warning('[ShlinkClient] shortUrl key missing in response', [
+                    'response' => $response->json(),
                 ]);
 
                 return $longUrl;
             }
 
-            return $response->json('shortUrl', $longUrl);
+            return $shortUrl;
         } catch (\Throwable $e) {
             Log::error('[ShlinkClient] Exception while shortening URL', [
                 'long_url' => $longUrl,

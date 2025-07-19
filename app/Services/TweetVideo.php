@@ -2,7 +2,7 @@
 
 namespace App\Services;
 
-use App\Contracts\TweetVideoServiceContract;
+use App\Contracts\TweetVideoContract;
 use App\Models\Config;
 use App\Models\Tweet;
 use App\Models\UserTwitter;
@@ -15,7 +15,7 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\URL;
 
-class TweetVideoService implements TweetVideoServiceContract
+class TweetVideo implements TweetVideoContract
 {
     use EncodesVideoKey;
 
@@ -122,7 +122,7 @@ class TweetVideoService implements TweetVideoServiceContract
 
             return $result;
         } catch (\Throwable $e) {
-            Log::error('[TweetVideoService] Thumbnail lookup failed', [
+            Log::error('[TweetVideo] Thumbnail lookup failed', [
                 'tweet_id' => $tweetId,
                 'index'    => $index,
                 'error'    => $e->getMessage(),
@@ -145,7 +145,7 @@ class TweetVideoService implements TweetVideoServiceContract
             }
 
             if (!$isPreview && $bitrate === null) {
-                Log::warning('[TweetVideoService] Bitrate required for non-preview stream', compact('tweetId', 'index'));
+                Log::warning('[TweetVideo] Bitrate required for non-preview stream', compact('tweetId', 'index'));
 
                 return null;
             }
@@ -184,7 +184,7 @@ class TweetVideoService implements TweetVideoServiceContract
                 'status'       => $rangeHeader ? 206 : 200,
             ];
         } catch (\Throwable $e) {
-            Log::error('[TweetVideoService] Stream failed', [
+            Log::error('[TweetVideo] Stream failed', [
                 'tweet_id' => $tweetId,
                 'index'    => $index,
                 'bitrate'  => $bitrate,
@@ -235,7 +235,7 @@ class TweetVideoService implements TweetVideoServiceContract
 
                     if (($json['code'] ?? null) === 326) {
                         $user->update(['is_active' => false]);
-                        Log::warning('[TweetVideoService] Locked Twitter account deactivated', [
+                        Log::warning('[TweetVideo] Locked Twitter account deactivated', [
                             'username' => $user->username,
                             'tweet_id' => $tweetId,
                         ]);
@@ -307,7 +307,7 @@ class TweetVideoService implements TweetVideoServiceContract
 
                     usleep(random_int(100, 300) * 1000);
                 } catch (\Throwable $e) {
-                    Log::error('[TweetVideoService] API fetch error', [
+                    Log::error('[TweetVideo] API fetch error', [
                         'tweet_id' => $tweetId,
                         'account'  => $user->username,
                         'error'    => $e->getMessage(),

@@ -13,11 +13,11 @@ class FetchTweetKeywords extends Command
     use HasConfig;
 
     protected $signature = 'twitter:fetch-tweets
-        {--mode : Mode to fetch: all, fresh, or historical}
-        {--limit : Limit number of accounts}
-        {--max-keyword : Limit keywords from config}
-        {--rest : Max accounts to rest per hour}
-        {--force : Override AUTO_SEARCH_TWEET check}';
+        {--mode= : Mode to fetch: all, fresh, or historical}
+        {--limit= : Limit number of accounts}
+        {--max-keyword= : Limit keywords from config}
+        {--rest= : Max accounts to rest per hour}
+        {--force : (bool) Force run even if AUTO_SEARCH_TWEET is false}';
 
     protected $description = 'Dispatch fetch jobs per keyword per account with staggered delays';
 

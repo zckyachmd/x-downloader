@@ -27,17 +27,15 @@ class ReplyToQueuedJob implements ShouldQueue
     public int $tries;
     protected int $tweetId;
     protected int $accountId;
-    protected ShlinkClientContract $shlink;
 
     public function __construct(int $tweetId, int $accountId)
     {
         $this->tweetId   = $tweetId;
         $this->accountId = $accountId;
         $this->tries     = (int) env('QUEUE_TRIES', 1);
-        $this->shlink    = app(ShlinkClientContract::class);
     }
 
-    public function handle(): void
+    public function handle(ShlinkClientContract $shlink): void
     {
         $lockKey = "reply-lock:{$this->tweetId}";
         $lock    = Cache::lock($lockKey, 15 * 60);
@@ -103,7 +101,7 @@ class ReplyToQueuedJob implements ShouldQueue
 
             $replyText = $this->interpolate($rawTemplate, [
                 'username' => "@{$tweet->username}",
-                'link'     => $this->shlink->shorten($link),
+                'link'     => $shlink->shorten($link),
             ]);
 
             $endpoint = rtrim(Config::getValue('API_X_DOWNLOADER', 'http://localhost:3000'), '/') . '/tweet/create';

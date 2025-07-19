@@ -24,7 +24,7 @@ class RepliesTweetsQueue extends Command
         {--rest-start= : Rest window start time (e.g. 00:00)}
         {--rest-end= : Rest window end time (e.g. 03:00)}
         {--rest= : Max accounts to rest per hour}
-        {--force : Force run even if AUTO_TWEET_REPLY is false}';
+        {--force : (bool) Force run even if AUTO_TWEET_REPLY is false}';
 
     protected $description = 'Dispatch reply jobs for tweets (status=queue) with related_tweet_id';
 

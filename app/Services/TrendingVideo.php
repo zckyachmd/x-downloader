@@ -2,13 +2,13 @@
 
 namespace App\Services;
 
-use App\Contracts\TrendingVideoServiceContract;
+use App\Contracts\TrendingVideoContract;
 use App\Models\VideoDownload;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
 
-class TrendingVideoService implements TrendingVideoServiceContract
+class TrendingVideo implements TrendingVideoContract
 {
     public function getDaily(int $limit = 10, bool $excludeSensitive = false): Collection
     {

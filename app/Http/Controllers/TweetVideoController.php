@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers;
 
-use App\Contracts\TweetVideoServiceContract;
+use App\Contracts\TweetVideoContract;
 use App\Http\Requests\TweetSearchRequest;
 use App\Models\VideoDownload;
 use App\Traits\EncodesVideoKey;
@@ -16,13 +16,13 @@ class TweetVideoController extends Controller
 {
     use EncodesVideoKey;
 
-    protected $tweetVideoService;
+    protected $tweetVideo;
     protected $userAgent;
 
-    public function __construct(TweetVideoServiceContract $tweetVideoService, UserAgent $userAgent)
+    public function __construct(TweetVideoContract $tweetVideo, UserAgent $userAgent)
     {
-        $this->tweetVideoService = $tweetVideoService;
-        $this->userAgent         = $userAgent;
+        $this->tweetVideo = $tweetVideo;
+        $this->userAgent  = $userAgent;
     }
 
     public function search(TweetSearchRequest $request)
@@ -35,7 +35,7 @@ class TweetVideoController extends Controller
             ], 422);
         }
 
-        $data = $this->tweetVideoService->get(tweetId: $tweetId, allowApiFallback: true);
+        $data = $this->tweetVideo->get(tweetId: $tweetId, allowApiFallback: true);
 
         if (!$data) {
             return response()->json([
@@ -67,7 +67,7 @@ class TweetVideoController extends Controller
         $tweetId = $resolved['tweet_id'];
         $index   = $resolved['index'];
 
-        $result = $this->tweetVideoService->imageThumbnail($tweetId, $index);
+        $result = $this->tweetVideo->imageThumbnail($tweetId, $index);
         $url    = $result['stream'] ?? null;
 
         if (!$url || !filter_var($url, FILTER_VALIDATE_URL)) {
@@ -151,7 +151,7 @@ class TweetVideoController extends Controller
             abort(404);
         }
 
-        $data = $this->tweetVideoService->streamVideo(
+        $data = $this->tweetVideo->streamVideo(
             $resolved['tweet_id'],
             $resolved['index'],
             true,
@@ -178,7 +178,7 @@ class TweetVideoController extends Controller
             return response()->json(['message' => 'Invalid or expired video key.'], 404);
         }
 
-        $data = $this->tweetVideoService->streamVideo(
+        $data = $this->tweetVideo->streamVideo(
             $resolved['tweet_id'],
             $resolved['index'],
             false,

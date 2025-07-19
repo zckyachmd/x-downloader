@@ -2,7 +2,7 @@
 
 namespace App\Jobs;
 
-use App\Contracts\TweetVideoServiceContract;
+use App\Contracts\TweetVideoContract;
 use App\Models\Tweet;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
@@ -28,7 +28,7 @@ class EnsureTweetVideoJob implements ShouldQueue, ShouldBeUnique
         $this->tweetId = $tweetId;
     }
 
-    public function handle(TweetVideoServiceContract $service): void
+    public function handle(TweetVideoContract $service): void
     {
         $tweetId  = $this->tweetId;
         $cacheKey = "tweet:$tweetId";

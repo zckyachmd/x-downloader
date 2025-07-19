@@ -2,7 +2,7 @@
 
 namespace App\Contracts;
 
-interface TweetVideoServiceContract
+interface TweetVideoContract
 {
     /**
      * Retrieve detailed information about a tweet using its URL.

@@ -15,7 +15,7 @@ class RefreshInactiveTwitterAccounts extends Command
     protected $signature = 'twitter:refresh-inactive
         {--limit= : Max accounts to refresh (default from config or 2-5)}
         {--mode= : Mode of refresh: light|deep (default=light)}
-        {--force : Force run even if AUTO_REFRESH_TOKEN is false}';
+        {--force : (bool) Force run even if AUTO_REFRESH_TOKEN is false}';
 
     protected $description = 'Dispatch jobs to refresh inactive or stale Twitter accounts';
 
