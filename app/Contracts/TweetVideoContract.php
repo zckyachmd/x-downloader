@@ -14,9 +14,10 @@ interface TweetVideoContract
      * @param bool $skipSignedRoute Whether to skip the signed route for the preview video.
      * @param bool $proxyThumbnail Whether to proxy the preview image.
      * @param bool $allowApiFallback Whether to allow fallback to the API if the tweet is not found in the database.
+     * @param int|null $userId The ID of the user to fetch the tweet from.
      * @return array|null Returns an associative array of tweet data or null if not found.
      */
-    public function get(int $tweetId, bool $skipSignedRoute = false, bool $proxyThumbnail = true, bool $allowApiFallback = false): ?array;
+    public function get(int $tweetId, bool $skipSignedRoute = false, bool $proxyThumbnail = true, bool $allowApiFallback = false, ?int $userId = null): ?array;
 
     /**
      * Retrieve a thumbnail image from a tweet.
@@ -50,7 +51,8 @@ interface TweetVideoContract
      *
      * @param int $tweetId The ID of the tweet to fetch.
      * @param int $maxProcess The maximum number of accounts to fetch the tweet from.
+     * @param int|null $userId The ID of the user to fetch the tweet from.
      * @return array|null Returns an array containing the tweet data or null if not found.
      */
-    public function fetchFromAPI(int $tweetId, int $maxProcess = 3): ?array;
+    public function fetchFromAPI(int $tweetId, int $maxProcess = 3, ?int $userId = null): ?array;
 }

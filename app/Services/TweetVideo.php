@@ -26,7 +26,7 @@ class TweetVideo implements TweetVideoContract
         $this->userAgent = new UserAgent();
     }
 
-    public function get(int $tweetId, bool $skipSignedRoute = false, bool $proxyThumbnail = true, bool $allowApiFallback = false): ?array
+    public function get(int $tweetId, bool $skipSignedRoute = false, bool $proxyThumbnail = true, bool $allowApiFallback = false, ?int $userId = null): ?array
     {
         $cacheKey = "tweet:$tweetId";
         $mapped   = Cache::get($cacheKey);
@@ -42,12 +42,12 @@ class TweetVideo implements TweetVideoContract
                 $lockKey = "tweet:fetching:$tweetId";
 
                 if (Cache::add($lockKey, true, 10)) {
-                    $data = $this->fetchFromAPI($tweetId);
+                    $data = $this->fetchFromAPI(tweetId: $tweetId, userId: $userId);
                     Cache::forget($lockKey);
                 } else {
                     $waitUntil = now()->addSeconds(2);
                     while (now()->lt($waitUntil)) {
-                        usleep(200_000); // 200ms
+                        usleep(200_000);
                         $data = Tweet::where('tweet_id', $tweetId)
                             ->where('status', 'video')
                             ->first()?->toArray();
@@ -196,7 +196,7 @@ class TweetVideo implements TweetVideoContract
         }
     }
 
-    public function fetchFromAPI(int $tweetId, int $maxProcess = 3): ?array
+    public function fetchFromAPI(int $tweetId, int $maxProcess = 3, ?int $userId = null): ?array
     {
         $lockKey = "tweet:fetch-lock:$tweetId";
         $lock    = Cache::lock($lockKey, 30);
@@ -208,10 +208,16 @@ class TweetVideo implements TweetVideoContract
         }
 
         try {
-            $accounts = UserTwitter::where('is_active', true)
-                ->where('is_main', false)
-                ->inRandomOrder()
-                ->limit($maxProcess)
+            $accounts = UserTwitter::query()
+                ->when($userId, fn ($q) => $q->where('id', $userId))
+                ->when(
+                    !$userId,
+                    fn ($q) => $q
+                        ->where('is_active', true)
+                        ->where('is_main', false)
+                        ->inRandomOrder()
+                        ->limit($maxProcess),
+                )
                 ->get();
 
             $endpoint = rtrim(Config::getValue('API_X_DOWNLOADER', 'http://localhost:3000'), '/') . '/tweet/detail';

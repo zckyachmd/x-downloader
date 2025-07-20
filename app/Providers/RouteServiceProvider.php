@@ -35,6 +35,19 @@ class RouteServiceProvider extends ServiceProvider
                 });
         });
 
+        RateLimiter::for('tweet-video', function (Request $request) {
+            $key = sha1($request->ip() . '|' . $request->header('User-Agent', 'unknown'));
+
+            return Limit::perMinute(10)
+                ->by($key)
+                ->response(function (Request $request, array $headers) {
+                    return response()->json([
+                        'message'     => 'Too many requests. Chill out. Try again later.',
+                        'retry_after' => $headers['Retry-After'] ?? null,
+                    ], 429, $headers);
+                });
+        });
+
         RateLimiter::for('tweet-download', function (Request $request) {
             $key = sha1($request->ip() . '|' . $request->header('User-Agent', 'unknown'));
 
