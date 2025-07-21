@@ -125,6 +125,7 @@ class ConfigSeeder extends Seeder
                 'name'        => 'Tweet Reply Exclude Usernames',
                 'description' => 'Daftar username yang tidak diinginkan dalam balasan tweet. Pisahkan dengan titik koma (;).',
                 'value'       => json_encode([
+                    'grok',
                     'TweetHelperBot',
                     'xdownloaderbot',
                     'xviddl',
