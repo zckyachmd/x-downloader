@@ -33,14 +33,13 @@ class RefreshInactiveTwitterAccounts extends Command
         $minDays      = $mode === 'deep' ? rand(2, 3) : rand(5, 8);
         $now          = now();
 
-        $candidates = UserTwitter::select(['username', 'is_active', 'updated_at'])
-            ->where('updated_at', '<=', $now->subDays($minDays))
-            ->inRandomOrder()
-            ->get()
-            ->filter(fn ($acc) => !$acc->is_active || rand(1, 100) <= $activeChance)
-            ->unique('username')
-            ->take($limit)
-            ->values();
+        $candidates = UserTwitter::select(['username', 'password', 'is_active', 'updated_at'])
+            ->where('username', '!=', '')->whereNotNull('username')
+            ->where('password', '!=', '')->whereNotNull('password')
+            ->where('updated_at', '<=', $now->copy()->subDays($minDays))
+            ->inRandomOrder()->get()
+            ->filter(fn ($a) => !$a->is_active || rand(1, 100) <= $activeChance)
+            ->unique('username')->take($limit)->values();
 
         if ($candidates->isEmpty()) {
             $this->info("✅ No stale/inactive accounts found.");

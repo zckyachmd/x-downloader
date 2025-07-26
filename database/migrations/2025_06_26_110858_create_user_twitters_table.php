@@ -12,8 +12,8 @@ return new class () extends Migration {
     {
         Schema::create('user_twitters', function (Blueprint $table) {
             $table->id();
-            $table->string('username', 50);
-            $table->text('password');
+            $table->string('username', 50)->default('anonymous')->nullable();
+            $table->text('password')->nullable();
             $table->json('tokens')->nullable();
             $table->json('cookies')->nullable();
             $table->string('user_agent', 512)->nullable();
